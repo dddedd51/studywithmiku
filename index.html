@@ -938,6 +938,28 @@ body.hasvid .notes{opacity:.35}
   .miku-strip .txt .eyebrow{letter-spacing:3px;font-size:10.5px}
 }
 </style>
+
+<!-- ==================== 百度统计 ====================
+  启用：把下面 BAIDU_TONGJI_ID 填成 32 位站点 ID 即可，其余不用动。
+  取 ID：tongji.baidu.com → 管理 → 新增网站 → 域名填 studywithmiku.qd.je → 代码获取
+  留空时不会加载任何外部脚本，零请求、零影响。
+  若百度要求验证域名，把 meta 的 content 值填到下面 baidu-site-verification 里。
+=================================================== -->
+<meta name="baidu-site-verification" content="">
+<script>
+window.BAIDU_TONGJI_ID = '';
+(function(){
+  // 无论是否启用，_hmt 都先就位：打点代码可以放心调用，不会报错
+  window._hmt = window._hmt || [];
+  var id = window.BAIDU_TONGJI_ID;
+  if(!id) return;
+  var hm = document.createElement('script');
+  hm.async = true;
+  hm.src = 'https://hm.baidu.com/hm.js?' + id;
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
 </head>
 <body class="hasvid" data-page-node-id="FfRCxCxyZ9P1At98WyLdCK">
 
@@ -1309,6 +1331,18 @@ body.hasvid .notes{opacity:.35}
     }catch(e){}
   }
 
+  // ---------- 统计打点（百度统计；未填 ID 时静默丢弃） ----------
+  // 后台查看路径：百度统计 → 行为分析 → 事件分析；分类固定为「番茄钟」
+  function track(action, label, value){
+    try{
+      if(!window._hmt) return;
+      var a = ['_trackEvent', '番茄钟', action];
+      if(label) a.push(String(label));
+      if(typeof value === 'number') a.push(value);
+      window._hmt.push(a);
+    }catch(e){}
+  }
+
   // ---------- 渲染 ----------
   var $ = function(id){ return document.getElementById(id); };
   function fmt(sec){
@@ -1448,14 +1482,16 @@ body.hasvid .notes{opacity:.35}
   // resumeEndAt：恢复上次进度时传入原结束时刻，避免误差累积
   function start(resumeEndAt){
     if(S.running) return;
+    var isFresh = S.left >= S.total - 0.4;   // 全新开始（而非暂停后续跑）
     // 首次开始专注时，记录连续天数（恢复时 left < total，不会重复记）
-    if(S.mode === 'focus' && S.left >= S.total - 0.4) bumpStreak();
+    if(S.mode === 'focus' && isFresh) bumpStreak();
     S.running = true;
     S.endAt = resumeEndAt || (Date.now() + Math.max(0, S.left) * 1000);
     tickTimer = setInterval(tick, 200);
     saveSession();
     render();
     vidSyncWithTimer();
+    track(S.mode === 'focus' ? '开始专注' : '开始休息', isFresh ? '新开始' : '续跑');
   }
   function tick(){
     var left = (S.endAt - Date.now()) / 1000;
@@ -1492,8 +1528,10 @@ body.hasvid .notes{opacity:.35}
       var isLong = (S.today.tomato % S.cfg.cycle === 0);
       save();
       renderStats(); renderLog();
+      track('完成番茄', '今日第' + S.today.tomato + '个', S.cfg.focus);
       showOverlay(isLong ? 'long' : 'short');
     }else{
+      track('完成休息', S.mode === 'long' ? '长休' : '短休');
       showOverlay('focus');
     }
     // 记下「刚完成、等下一步」：刷新后能直接进到下一阶段，而不是回到 39:00
