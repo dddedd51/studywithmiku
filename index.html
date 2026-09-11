@@ -1114,6 +1114,7 @@ body.hasvid .notes{opacity:.35}
     running:false,
     left:39*60,          // 剩余秒
     total:39*60,         // 当前阶段总秒
+    endAt:0,             // 运行时的绝对结束时刻（ms）；0 = 未运行
     round:1,             // 第几个番茄
     cfg:{focus:39, short:5, long:15, cycle:4},
     autoNext:true,
@@ -1158,6 +1159,82 @@ body.hasvid .notes{opacity:.35}
       today:S.today, all:S.all, log:S.log,
       streak:S.streak||0, lastDay:S.lastDay||''
     }));
+  }
+
+  // ---------- 进行中的计时状态（刷新页面后接着跑，不再从头开始）----------
+  // 关键思路：存「绝对结束时刻 endAt」，而不是每秒写一次剩余秒。
+  //   刷新后用 endAt - now 就能算出真实剩余，写入次数极少，也顺带修掉了
+  //   「切到后台标签页时定时器被节流、计时走慢」的问题。
+  var SESS = KEY + '_session';
+
+  function saveSession(extra){
+    try{
+      var o = {
+        v:1,
+        mode:S.mode, total:S.total, left:S.left, round:S.round,
+        running:!!S.running, endAt:S.endAt||0,
+        savedAt:Date.now()
+      };
+      if(extra){ for(var k in extra){ o[k] = extra[k]; } }
+      storeSet(SESS, JSON.stringify(o));
+    }catch(e){}
+  }
+
+  function clearSession(){
+    try{ localStorage.removeItem(SESS); }catch(e){}
+    try{ sessionStorage.removeItem(SESS); }catch(e){}
+    S.endAt = 0;
+  }
+
+  // 返回 true = 成功接回上次的进度
+  function restoreSession(){
+    var raw = null;
+    try{ raw = storeGet(SESS); }catch(e){}
+    if(!raw) return false;
+    var o = null;
+    try{ o = JSON.parse(raw); }catch(e){ return false; }
+    if(!o || !o.mode || !(o.total > 0)) return false;
+
+    // 暂停中的状态超过 12 小时就别恢复了，免得第二天打开看到昨天的残留
+    if(!o.running && o.savedAt && (Date.now() - o.savedAt) > 12*3600*1000) return false;
+
+    S.mode  = (o.mode === 'short' || o.mode === 'long') ? o.mode : 'focus';
+    S.total = o.total;
+    S.round = o.round > 0 ? o.round : 1;
+
+    // 上次刚完成一个阶段、还没点「下一步」→ 直接进到下一阶段的起点
+    if(o.nextPending){
+      S.running = false;
+      advance();
+      return true;
+    }
+
+    if(o.running && o.endAt > 0){
+      var rem = (o.endAt - Date.now()) / 1000;
+      if(rem > 0){
+        // 还在计时中：原样沿用那个结束时刻接着跑，误差最小
+        S.running = false;
+        S.left = rem;
+        start(o.endAt);
+        return true;
+      }
+      // 刚好到点（30 分钟内）→ 说明这次是真完成了，正常结算并记一个番茄
+      if((Date.now() - o.endAt) < 30*60*1000){
+        S.running = false;
+        S.left = 0;
+        render();
+        complete();
+        return true;
+      }
+      return false;   // 过去太久，当没发生过
+    }
+
+    // 暂停中：停在原来剩余的位置
+    var lv = (typeof o.left === 'number') ? o.left : S.total;
+    S.left = Math.max(0, Math.min(lv, S.total));
+    S.running = false;
+    render();
+    return true;
   }
 
   // ---------- 连续天数 ----------
@@ -1328,34 +1405,38 @@ body.hasvid .notes{opacity:.35}
     S.total = S.cfg[mode] * 60;
     S.left = S.total;
     if(!keepRound && mode === 'focus'){ /* round 已在别处处理 */ }
+    saveSession();
     render();
   }
-  function start(){
+  // resumeEndAt：恢复上次进度时传入原结束时刻，避免误差累积
+  function start(resumeEndAt){
     if(S.running) return;
-    // 首次开始专注时，记录连续天数
-    if(S.mode === 'focus' && S.left === S.total) bumpStreak();
+    // 首次开始专注时，记录连续天数（恢复时 left < total，不会重复记）
+    if(S.mode === 'focus' && S.left >= S.total - 0.4) bumpStreak();
     S.running = true;
-    var last = Date.now();
-    tickTimer = setInterval(function(){
-      var now = Date.now();
-      var dt = (now - last) / 1000;
-      last = now;
-      S.left -= dt;
-      if(S.left <= 0){
-        S.left = 0;
-        render();
-        stop();
-        complete();
-        return;
-      }
-      render();
-    }, 200);
+    S.endAt = resumeEndAt || (Date.now() + Math.max(0, S.left) * 1000);
+    tickTimer = setInterval(tick, 200);
+    saveSession();
     render();
     vidSyncWithTimer();
   }
+  function tick(){
+    var left = (S.endAt - Date.now()) / 1000;
+    if(left <= 0){
+      S.left = 0;
+      render();
+      stop();
+      complete();
+      return;
+    }
+    S.left = left;
+    render();
+  }
   function stop(){
     S.running = false;
+    S.endAt = 0;
     if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    saveSession();          // 暂停也要记住位置，刷新后停在同一处而不是归零
     render();
     vidSyncWithTimer();
   }
@@ -1378,6 +1459,8 @@ body.hasvid .notes{opacity:.35}
     }else{
       showOverlay('focus');
     }
+    // 记下「刚完成、等下一步」：刷新后能直接进到下一阶段，而不是回到 39:00
+    saveSession({nextPending:true});
   }
   function showOverlay(next){
     var isFocusNext = (next === 'focus');
@@ -1420,6 +1503,7 @@ body.hasvid .notes{opacity:.35}
     stop();
     S.left = S.total;
     render();
+    saveSession();
   };
   var elSkip = $('skipBtn');
   if(elSkip) elSkip.onclick = function(){
@@ -1452,8 +1536,8 @@ body.hasvid .notes{opacity:.35}
       $('vLong').textContent = S.cfg.long;
       $('vCycle').textContent = S.cfg.cycle;
       // 当前阶段若未开始，同步刷新
-      if(!S.running && S.left === S.total){ S.total = S.cfg[S.mode]*60; S.left = S.total; }
-      save(); render();
+      if(!S.running && S.left >= S.total - 0.4){ S.total = S.cfg[S.mode]*60; S.left = S.total; }
+      save(); saveSession(); render();
     };
   });
 
@@ -1484,11 +1568,15 @@ body.hasvid .notes{opacity:.35}
   document.addEventListener('keydown', function(e){
     var tag = (e.target.tagName||'').toLowerCase();
     if(tag === 'input' || tag === 'textarea') return;    if(e.code === 'Space'){ e.preventDefault(); S.running ? stop() : start(); }
-    if(e.key === 'r' || e.key === 'R'){ stop(); S.left = S.total; render(); }
+    if(e.key === 'r' || e.key === 'R'){ stop(); S.left = S.total; render(); saveSession(); }
   });
 
-  // 离开页面时把标题改回去
-  window.addEventListener('beforeunload', stop);
+  // 刷新 / 关闭页面：只把当前进度写盘，**不动 running 状态** —— 下次打开接着跑
+  window.addEventListener('beforeunload', function(){ saveSession(); });
+  // 切到后台（含手机切 App）也存一次，防止被系统直接杀掉
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) saveSession();
+  });
 
   // ---------- 漂浮音符 ----------
   (function initNotes(){
@@ -2050,9 +2138,10 @@ body.hasvid .notes{opacity:.35}
   $('vShort').textContent = S.cfg.short;
   $('vLong').textContent = S.cfg.long;
   $('vCycle').textContent = S.cfg.cycle;
-  setMode('focus');
   renderLog();
   initVid();
+  // 接回上次未完成的进度（刷新/误关页面后不再从头开始）；没有进度才用默认的专注阶段
+  if(!restoreSession()) setMode('focus');
 
   // 支持 ?task=xxx 从冲刺计划带任务进来
   (function(){
