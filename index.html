@@ -695,7 +695,7 @@ body.mp-hide .mp{display:none}
 .mp-prog:hover b{transform:translate(-50%,-50%) scale(1)}
 .mp-prog.zero i{background:transparent}
 
-.mp-bar{max-height:92px;overflow:hidden}   /* 兜底：内部元素意外撑高时不会把整条播放器拉长 */
+.mp-bar{max-height:104px;overflow:hidden}   /* 兜底：内部元素意外撑高时不会把整条播放器拉长（音量行 30 + 进度 3 + 主行 50 ≈ 83） */
 .mp-bar-in{display:flex;align-items:center;gap:12px;padding:8px 12px}
 .mp-cover{
   width:44px;height:44px;border-radius:10px;flex:none;overflow:hidden;
@@ -753,18 +753,52 @@ body.mp-hide .mp{display:none}
 }
 .mp-ic.mp-w{position:relative;width:auto;padding:0 9px;gap:5px;font-size:12.5px;font-weight:700}
 
-.mp-vol{display:flex;align-items:center;width:0;overflow:hidden;transition:width .2s;flex:none}
-.mp-tools:hover .mp-vol,.mp-vol.pin{width:78px;margin-right:4px}
-.mp-vol input{
-  width:78px;height:4px;-webkit-appearance:none;appearance:none;
-  background:var(--line);border-radius:99px;outline:none;cursor:pointer;
+/* ---------- 音量行（常驻，位于进度条上方） ---------- */
+.mp-vrow{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 12px 5px;
 }
-.mp-vol input::-webkit-slider-thumb{
-  -webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
+.mp-vic{
+  font-family:inherit;cursor:pointer;border:none;background:transparent;
+  color:var(--miku-deep);font-size:13px;line-height:1;padding:0;flex:none;
+  width:20px;height:20px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,transform .15s;
+}
+.mp-vic:hover{background:var(--miku-pale);transform:translateY(-1px)}
+.mp-vic:active{transform:scale(.92)}
+/* 轨道用渐变画出「已填充」部分，百分比由 JS 写入 --vp 变量
+   注意：input 本身 16px 高（保证好点），视觉轨道只有 4px（::-webkit-slider-runnable-track） */
+.mp-vrow .mp-vrange{
+  flex:1;min-width:0;margin:0;height:16px;
+  -webkit-appearance:none;appearance:none;
+  background:transparent;outline:none;cursor:pointer;
+}
+.mp-vrow .mp-vrange::-webkit-slider-runnable-track{
+  height:4px;border-radius:99px;
+  background:linear-gradient(90deg,var(--miku-soft) 0%,var(--miku) var(--vp,70%),
+    var(--line) var(--vp,70%),var(--line) 100%);
+}
+.mp-vrow .mp-vrange::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:11px;height:11px;border-radius:50%;
+  margin-top:-3.5px;   /* (4 - 11) / 2，让圆点居中压在轨道上 */
   background:var(--miku);cursor:pointer;box-shadow:0 1px 4px rgba(15,91,87,.35);
+  transition:transform .12s;
 }
-.mp-vol input::-moz-range-thumb{
-  width:12px;height:12px;border:none;border-radius:50%;background:var(--miku);cursor:pointer;
+.mp-vrow .mp-vrange:hover::-webkit-slider-thumb{transform:scale(1.2)}
+.mp-vrow .mp-vrange::-moz-range-track{
+  height:4px;border-radius:99px;background:var(--line);
+}
+.mp-vrow .mp-vrange::-moz-range-progress{
+  height:4px;border-radius:99px;background:linear-gradient(90deg,var(--miku-soft),var(--miku));
+}
+.mp-vrow .mp-vrange::-moz-range-thumb{
+  width:11px;height:11px;border:none;border-radius:50%;background:var(--miku);
+  cursor:pointer;box-shadow:0 1px 4px rgba(15,91,87,.35);
+}
+.mp-vnum{
+  flex:none;width:24px;text-align:right;font-size:10px;font-weight:700;
+  color:var(--sub);font-variant-numeric:tabular-nums;letter-spacing:.2px;
 }
 
 /* 收起后的小圆标（与迷你条同侧：左下角） */
@@ -792,7 +826,7 @@ body.hasvid .mp-list-head{
 @media (max-width:720px){
   .mp-time,.mp-cols span:nth-child(3),.mp-row .ar{display:none}
   .mp-row,.mp-cols{grid-template-columns:30px minmax(0,1fr)}
-  .mp-tools .mp-vol{display:none}
+  .mp-vnum{display:none}
   .mp-cover{width:40px;height:40px}
   .mp-title{font-size:12.5px}
 }
@@ -813,10 +847,9 @@ body.hasvid .mp-list-head{
 .mp-ic{width:28px;height:28px;font-size:14px;border-radius:8px}
 .mp-play{width:32px;height:32px;font-size:14px}
 .mp-ic.mp-w{padding:0 6px;gap:3px;font-size:11px}
-/* 迷你条只保留：封面 / 歌名 / 播放 / 下一首 / 列表 / 收起 */
+/* 迷你条主行只保留：封面 / 歌名 / 播放 / 下一首 / 列表 / 收起（音量独立成行，见 .mp-vrow） */
 .mp-time{display:none}
-.mp-tools .mp-vol,
-.mp-tools #mpVolBtn,
+.mp-vrow{padding:6px 9px 4px;gap:7px}
 .mp-tools #mpMode,
 .mp-tools #mpPrev{display:none}
 .mp-tools #mpCountNum{display:none}
@@ -944,6 +977,12 @@ body.hasvid .notes{opacity:.35}
 
     <!-- 底部横条 -->
     <div class="mp-bar" data-page-node-id="lnQuHT4YaPaNUqIey4qwxR">
+      <!-- 音量行：常驻显示，位于进度条上方 -->
+      <div class="mp-vrow" data-page-node-id="YmByNvM6jNuNtAu8E5C1qs">
+        <button class="mp-vic" id="mpVolBtn" title="静音 / 恢复音量" data-page-node-id="JCOWFxwGP7ChiWCABjE54x">🔊</button>
+        <input class="mp-vrange" id="mpVol" type="range" min="0" max="100" value="70" aria-label="音量" title="音量" data-page-node-id="GOagGoc6XD5BaSfzsICM0A">
+        <span class="mp-vnum" id="mpVolNum">70</span>
+      </div>
       <div class="mp-prog" id="mpProg" data-page-node-id="A5Z7h9kmElElNZXY8MD5cL"><i id="mpProgFill" data-page-node-id="qLSpddtK2PaHnvUek81sO4"></i><b id="mpProgDot" data-page-node-id="lD6z37Y6572GtDjJt52fZa"></b></div>
       <div class="mp-bar-in" data-page-node-id="keEjh5UDCrbG7yBRHoHUkn">
         <div class="mp-cover" id="mpCover" title="展开播放列表" data-page-node-id="9DVvFFgKywgAOEXWjVi7fQ">
@@ -956,8 +995,6 @@ body.hasvid .notes{opacity:.35}
         </div>
         <div class="mp-time" data-page-node-id="kAG7y9kb20NDdWsQg6ASFA"><b id="mpCur" data-page-node-id="2kr7bBIG0IoQTC5voMYfLn">00:00</b> / <span id="mpDur" data-page-node-id="HIjcKQQRouW8AWQBASfwqs">00:00</span></div>
         <div class="mp-tools" data-page-node-id="dFwsNf0E88hkUNny5sv3nV">
-          <div class="mp-vol" data-page-node-id="YmByNvM6jNuNtAu8E5C1qs"><input id="mpVol" type="range" min="0" max="100" value="70" data-page-node-id="GOagGoc6XD5BaSfzsICM0A"></div>
-          <button class="mp-ic" id="mpVolBtn" title="音量" data-page-node-id="JCOWFxwGP7ChiWCABjE54x">🔊</button>
           <button class="mp-ic" id="mpMode" title="播放模式：列表循环" data-page-node-id="Lr9c1dsb44P3cyJuNcxqbi">🔁</button>
           <button class="mp-ic" id="mpPrev" title="上一首" data-page-node-id="ZFDc7YcQB7iFLozOFyXeN9">⏮</button>
           <button class="mp-play" id="mpPlay" title="播放 / 暂停" data-page-node-id="MCBtPc2JfmFDirHAuHZTjm">▶</button>
@@ -2069,8 +2106,16 @@ body.hasvid .notes{opacity:.35}
     function applyVol(){
       AU.volume = M.vol;
       AU.muted = M.vol <= 0.001;
-      $('mpVol').value = String(Math.round(M.vol * 100));
-      $('mpVolBtn').textContent = M.vol <= 0.001 ? '🔇' : (M.vol < 0.45 ? '🔈' : '🔊');
+      var pct = Math.round(M.vol * 100);
+      var rng = $('mpVol');
+      rng.value = String(pct);
+      // 写入 --vp 百分比，由 CSS 里 ::-webkit-slider-runnable-track 的渐变画出已填充部分
+      rng.style.setProperty('--vp', pct + '%');
+      var num = $('mpVolNum');
+      if(num) num.textContent = String(pct);
+      var btn = $('mpVolBtn');
+      btn.textContent = M.vol <= 0.001 ? '🔇' : (M.vol < 0.45 ? '🔈' : '🔊');
+      btn.title = M.vol <= 0.001 ? '恢复音量' : '静音';
     }
     $('mpVol').oninput = function(){ M.vol = this.value / 100; applyVol(); mSave(); };
     $('mpVolBtn').onclick = function(){ M.vol = (M.vol > 0.001 ? 0 : 0.7); applyVol(); mSave(); };
