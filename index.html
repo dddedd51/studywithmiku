@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="y8DbZGRyk8ojasFZUq9l4F">
+<head data-page-node-id="uD1UI9H7bwL2guYpdXOJSY">
+<meta charset="UTF-8" data-page-node-id="xBulzLxt1m6K0ZGpASMRfV">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="gUlK2edQINOrhoqbfBSMz6">
+<title>初音番茄钟 · 专注计时</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" data-page-node-id="n1yPXMLBAIl6jMC8z2zkDu">
+<style>
+@font-face{font-family:"霞鹜文楷";src:url("./_shared/fonts/LXGWWenKai-subset.woff2") format("woff2");font-display:swap;font-weight:400;font-style:normal}
+
+:root{
+  /* 主色调 #39c5bb —— 初音绿 */
+  --miku:#39c5bb;
+  --miku-deep:#1f8f88;
+  --miku-dark:#0f5b57;
+  --miku-soft:#a8e6e1;
+  --miku-pale:#e6f7f5;
+  --miku-glow:rgba(57,197,187,.42);
+
+  --ink:#0d2b2a;
+  --sub:#5c807d;
+  --line:#c9e8e4;
+
+  --bg:#eefaf8;
+  --card:#ffffff;
+
+  /* 阶段色 */
+  --focus:#39c5bb;
+  --short:#5bb8d4;
+  --long:#4a8fd4;
+
+  --ok:#2fa87f;
+  --warn:#e0a020;
+
+  --shadow:0 4px 20px rgba(15,91,87,.09);
+  --shadow-lg:0 12px 40px rgba(15,91,87,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"霞鹜文楷","LXGW WenKai",KaiTi,"楷体",STKaiti,-apple-system,"Segoe UI",sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ============ 背景层：斜向光带 + 网格 + 光斑 ============ */
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-layer .grid{
+  position:absolute;inset:-40px;
+  background-image:linear-gradient(rgba(57,197,187,.055) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(57,197,187,.055) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000 25%,transparent 78%);
+  -webkit-mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000 25%,transparent 78%);
+}
+.bg-layer .beam{
+  position:absolute;width:150%;height:340px;left:-25%;
+  background:linear-gradient(90deg,transparent,rgba(57,197,187,.10),rgba(168,230,225,.16),rgba(57,197,187,.10),transparent);
+  transform:rotate(-13deg);
+}
+.bg-layer .beam.b1{top:6%;animation:drift 22s ease-in-out infinite}
+.bg-layer .beam.b2{top:52%;opacity:.5;animation:drift 28s ease-in-out infinite reverse}
+@keyframes drift{0%,100%{transform:rotate(-13deg) translateX(-3%)}50%{transform:rotate(-13deg) translateX(3%)}}
+.bg-layer .orb{position:absolute;border-radius:50%;filter:blur(58px);opacity:.5}
+.bg-layer .orb.o1{width:400px;height:400px;background:rgba(57,197,187,.30);top:-120px;left:-100px;animation:float 18s ease-in-out infinite}
+.bg-layer .orb.o2{width:340px;height:340px;background:rgba(91,184,212,.24);bottom:-110px;right:-90px;animation:float 23s ease-in-out infinite reverse}
+@keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(26px,-26px)}}
+
+/* ============ 漂浮音符 ============ */
+.notes{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.notes i{
+  position:absolute;bottom:-46px;font-style:normal;font-size:20px;
+  color:var(--miku);opacity:0;
+  animation:rise linear infinite;
+  text-shadow:0 0 10px var(--miku-glow);
+}
+@keyframes rise{
+  0%{transform:translateY(0) rotate(0deg);opacity:0}
+  12%{opacity:.62}
+  85%{opacity:.32}
+  100%{transform:translateY(-108vh) rotate(340deg);opacity:0}
+}
+
+.wrap{position:relative;z-index:2;max-width:1000px;margin:0 auto;padding:0 18px 120px}
+
+/* ============ 顶栏 ============ */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  background:rgba(238,250,248,.90);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  display:flex;gap:11px;align-items:center;flex-wrap:wrap;
+  padding:10px 18px;margin:0 -18px 20px;
+}
+.topbar a{
+  color:var(--miku-deep);text-decoration:none;font-weight:700;font-size:13.5px;
+  border:1px solid var(--line);background:var(--card);border-radius:9px;padding:6px 12px;
+  transition:all .16s;
+}
+.topbar a:hover{border-color:var(--miku);background:var(--miku-pale);transform:translateY(-1px)}
+.topbar .brand{display:flex;align-items:center;gap:9px;margin-right:auto}
+.topbar .brand .mark{
+  width:28px;height:28px;border-radius:9px;flex:none;
+  background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:14px;font-weight:800;
+  box-shadow:0 3px 10px var(--miku-glow);
+}
+.topbar .brand .tt{font-weight:800;font-size:15px;letter-spacing:1.5px}
+.topbar .total{
+  font-size:12.5px;color:var(--sub);
+  border:1px dashed var(--line);border-radius:99px;padding:4px 12px;
+}
+.topbar .total b{color:var(--miku-deep);font-size:14px;font-variant-numeric:tabular-nums}
+
+/* ============ 主体：左计时 右设置 ============ */
+.stage{
+  display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:20px;align-items:stretch;
+}
+
+/* ---------- 计时卡 ---------- */
+.timer-card{
+  position:relative;background:var(--card);
+  border:1px solid var(--line);border-radius:26px;
+  box-shadow:var(--shadow-lg);overflow:hidden;
+  padding:26px 26px 22px;
+  display:flex;flex-direction:column;
+}
+/* 计时主体整体居中；提示条吸附到底部，避免底部出现空档 */
+.timer-card .modes{margin-top:auto}
+.timer-card .actions{margin-bottom:auto}
+.timer-card .tip{margin-top:auto}
+.timer-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--miku),var(--short),var(--long),var(--miku));
+  background-size:220% 100%;animation:sweep 7s linear infinite;
+}
+@keyframes sweep{0%{background-position:0 0}100%{background-position:220% 0}}
+
+/* 阶段切换标签 */
+.modes{display:flex;gap:7px;justify-content:center;margin-bottom:6px;flex-wrap:wrap}
+.modes button{
+  font-family:inherit;font-size:13px;cursor:pointer;
+  border:1.5px solid var(--line);background:#fff;color:var(--sub);
+  border-radius:99px;padding:7px 17px;transition:all .18s;font-weight:700;
+  letter-spacing:.5px;
+}
+.modes button:hover{border-color:var(--miku);color:var(--miku-deep);transform:translateY(-1px)}
+.modes button.on{
+  border-color:transparent;color:#fff;
+  box-shadow:0 4px 14px var(--miku-glow);
+}
+.modes button.on[data-mode="focus"]{background:linear-gradient(135deg,var(--miku),var(--miku-deep))}
+.modes button.on[data-mode="short"]{background:linear-gradient(135deg,#5bb8d4,#3d8fae);box-shadow:0 4px 14px rgba(91,184,212,.4)}
+.modes button.on[data-mode="long"]{background:linear-gradient(135deg,#4a8fd4,#3467a8);box-shadow:0 4px 14px rgba(74,143,212,.4)}
+
+/* 圆环 */
+.dial{position:relative;width:294px;height:294px;margin:16px auto 6px}
+.dial svg{width:294px;height:294px;display:block;transform:rotate(-90deg)}
+.dial .track{fill:none;stroke:var(--miku-pale);stroke-width:15}
+.dial .prog{fill:none;stroke:url(#grad);stroke-width:15;stroke-linecap:round;
+  transition:stroke-dashoffset .45s linear,opacity .3s}
+/* 进度为 0 时隐藏圆头，避免顶部出现一个悬空绿点 */
+.dial .prog.zero{opacity:0}
+.dial .ticks line{stroke:var(--miku-soft);stroke-width:2;stroke-linecap:round}
+.dial .center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;
+}
+.dial .time{
+  font-size:60px;font-weight:800;letter-spacing:2px;
+  font-variant-numeric:tabular-nums;line-height:1;
+  color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+}
+.dial .phase{
+  font-size:13px;letter-spacing:4px;color:var(--miku-deep);font-weight:700;margin-top:5px;
+}
+.dial .rounds{font-size:12px;color:var(--sub);letter-spacing:1px;margin-top:3px}
+.dial .sub{font-size:11.5px;color:var(--sub);letter-spacing:1.5px;margin-top:4px;opacity:.85}
+
+/* 运行时的呼吸光晕 */
+.dial::after{
+  content:'';position:absolute;inset:14px;border-radius:50%;
+  box-shadow:0 0 0 0 var(--miku-glow);opacity:0;transition:opacity .4s;
+}
+body.running .dial::after{opacity:1;animation:breathe 4s ease-in-out infinite}
+@keyframes breathe{
+  0%,100%{box-shadow:0 0 34px 6px var(--miku-glow)}
+  50%{box-shadow:0 0 62px 16px var(--miku-glow)}
+}
+
+/* 按钮组 */
+.actions{display:flex;gap:11px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap}
+.btn{
+  font-family:inherit;cursor:pointer;border-radius:99px;
+  border:1.5px solid var(--line);background:#fff;color:var(--ink);
+  font-size:14px;font-weight:700;padding:11px 22px;transition:all .18s;letter-spacing:.5px;
+}
+.btn:hover{border-color:var(--miku);transform:translateY(-2px);box-shadow:0 6px 18px rgba(15,91,87,.12)}
+.btn.primary{
+  border-color:transparent;color:#fff;font-size:15.5px;padding:13px 42px;
+  background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  box-shadow:0 6px 20px var(--miku-glow);
+}
+.btn.primary:hover{box-shadow:0 10px 28px var(--miku-glow)}
+.btn.icon{padding:11px 15px;font-size:15px}
+.btn:disabled{opacity:.42;cursor:not-allowed;transform:none!important;box-shadow:none}
+
+/* 提示条 */
+.tip{
+  margin-top:16px;padding:9px 14px;border-radius:12px;
+  background:var(--miku-pale);border:1px dashed var(--line);
+  font-size:12.5px;color:var(--miku-deep);text-align:center;line-height:1.7;
+}
+
+/* ---------- 右侧面板 ---------- */
+.side{display:flex;flex-direction:column;gap:16px}
+
+.box{
+  background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:16px 18px;box-shadow:var(--shadow);
+}
+.box h3{
+  font-size:14px;letter-spacing:1.5px;margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;color:var(--ink);
+}
+.box h3::before{
+  content:'';width:4px;height:15px;border-radius:2px;flex:none;
+  background:linear-gradient(180deg,var(--miku),var(--miku-deep));
+}
+
+/* 设置行 */
+.row{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:13.5px}
+.row label{flex:1;color:var(--sub)}
+.stepper{display:flex;align-items:center;gap:2px;background:var(--miku-pale);border-radius:9px;padding:2px}
+.stepper button{
+  font-family:inherit;width:26px;height:26px;border:none;background:transparent;
+  color:var(--miku-deep);cursor:pointer;border-radius:7px;font-size:15px;font-weight:800;
+  line-height:1;transition:all .14s;
+}
+.stepper button:hover{background:#fff;color:var(--miku-dark)}
+.stepper button:disabled{opacity:.3;cursor:not-allowed;background:transparent}
+.stepper .val{
+  width:42px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;
+  color:var(--ink);font-size:14px;
+}
+
+/* 开关 */
+.switch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch .sl{
+  position:absolute;inset:0;background:#d4e6e4;border-radius:99px;transition:background .22s;
+}
+.switch .sl::before{
+  content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:transform .22s;
+  box-shadow:0 1.5px 4px rgba(0,0,0,.2);
+}
+.switch input:checked + .sl{background:var(--miku)}
+.switch input:checked + .sl::before{transform:translateX(20px)}
+
+/* 统计格 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini{
+  background:var(--miku-pale);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px;text-align:center;
+}
+.mini b{
+  display:block;font-size:22px;color:var(--miku-deep);line-height:1.2;
+  font-variant-numeric:tabular-nums;font-weight:800;
+}
+.mini span{font-size:11.5px;color:var(--sub);letter-spacing:.5px}
+
+/* 任务输入 */
+.task-in{
+  width:100%;font-family:inherit;font-size:13.5px;
+  border:1.5px solid var(--line);border-radius:11px;padding:10px 13px;
+  background:#fff;color:var(--ink);outline:none;transition:all .16s;
+}
+.task-in:focus{border-color:var(--miku);box-shadow:0 0 0 3px var(--miku-pale)}
+.task-in::placeholder{color:#a8c4c1}
+
+/* 记录列表 */
+.log{max-height:196px;overflow:auto;margin:-4px -4px 0}
+.log::-webkit-scrollbar{width:5px}
+.log::-webkit-scrollbar-thumb{background:var(--miku-soft);border-radius:9px}
+.log .it{
+  display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;font-size:12.5px;
+}
+.log .it:hover{background:var(--miku-pale)}
+.log .it .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--miku)}
+.log .it .dot.s{background:#5bb8d4}
+.log .it .dot.l{background:#4a8fd4}
+.log .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#33514f}
+.log .it .tm{color:var(--sub);font-variant-numeric:tabular-nums;font-size:11.5px;flex:none}
+.log .empty{text-align:center;color:var(--sub);font-size:12.5px;padding:18px 0;opacity:.8}
+
+/* ---------- 初音主题横幅（深海 · 深色剧场式）---------- */
+.miku-strip{
+  position:relative;margin-top:20px;border-radius:24px;overflow:hidden;
+  border:1px solid #0a3b4a;
+  box-shadow:0 14px 44px rgba(0,32,52,.34);
+  min-height:340px;
+  display:flex;align-items:flex-end;
+  background:#001028;
+}
+/* 插画背景层：水下初音，构图对准面部与青绿长发 */
+.miku-strip .artbg{
+  position:absolute;inset:0;
+  background-image:url("./_shared/miku/miku_banner.jpg");
+  background-size:cover;
+  /* 主体面部位于画面 58%/60% 处，取景时保持她在右侧主视觉区 */
+  background-position:58% 58%;
+  background-repeat:no-repeat;
+  animation:slowzoom 28s ease-in-out infinite;
+  transform-origin:58% 58%;
+}
+@keyframes slowzoom{
+  0%,100%{transform:scale(1.0)}
+  50%{transform:scale(1.05)}
+}
+/* 暗化渐变：左侧压暗保证文字可读，右侧放开让插画透出来 */
+.miku-strip .veil{
+  position:absolute;inset:0;
+  background:linear-gradient(100deg,
+    rgba(0,10,28,.94) 0%,
+    rgba(0,14,36,.85) 30%,
+    rgba(0,18,44,.60) 48%,
+    rgba(0,22,52,.26) 68%,
+    rgba(0,26,58,.06) 86%,
+    rgba(0,28,62,0) 100%),
+    linear-gradient(0deg,rgba(0,8,24,.58) 0%,transparent 58%);
+}
+/* 青色光晕，呼应主色 */
+.miku-strip .glowline{
+  position:absolute;left:0;right:0;top:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--miku),#7fe3db,var(--miku),transparent);
+  opacity:.9;
+}
+/* 文字内容 */
+.miku-strip .txt{
+  position:relative;z-index:3;padding:30px 32px 28px;max-width:620px;
+}
+.miku-strip .txt .eyebrow{
+  font-size:11.5px;letter-spacing:5px;color:var(--miku);
+  text-transform:uppercase;margin-bottom:9px;font-weight:700;
+  opacity:.95;
+}
+.miku-strip .txt h2{
+  font-size:23px;letter-spacing:2px;margin-bottom:11px;color:#fff;
+  text-shadow:0 2px 18px rgba(0,20,40,.8);
+  line-height:1.4;
+}
+.miku-strip .txt h2 em{
+  font-style:normal;color:var(--miku);
+  text-shadow:0 0 22px var(--miku-glow);
+}
+.miku-strip .txt p{
+  font-size:13.5px;color:#c8e6e4;line-height:2;
+  text-shadow:0 1px 10px rgba(0,16,36,.9);
+}
+.miku-strip .txt p b{color:#fff}
+.miku-strip .txt .kw{
+  display:inline-block;margin:13px 7px 0 0;font-size:11.5px;
+  background:rgba(57,197,187,.16);color:#9deae3;
+  border:1px solid rgba(57,197,187,.42);
+  border-radius:99px;padding:4px 13px;font-weight:700;
+  backdrop-filter:blur(4px);
+}
+/* 右下角 39 水印 */
+.miku-strip .wm{
+  position:absolute;right:26px;bottom:16px;z-index:3;
+  font-size:64px;font-weight:800;line-height:1;
+  color:rgba(57,197,187,.20);letter-spacing:-2px;
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  pointer-events:none;user-select:none;
+}
+
+/* ============ Study With Miku 视频背景层 ============ */
+.vid-layer{
+  position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:#071a24;
+  opacity:0;transition:opacity .6s ease;
+}
+.vid-layer.on{opacity:1}
+.vid-layer video{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  object-fit:cover;
+  border:0;
+  display:block;
+}
+/* 视频上方的压暗层：只在四周轻微压暗，中央保持通透，让插画清晰可见 */
+.vid-veil{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(4,20,30,.55) 0%,rgba(4,20,30,.10) 26%,rgba(4,20,30,.08) 68%,rgba(4,20,30,.62) 100%),
+    radial-gradient(ellipse 86% 78% at 50% 50%,rgba(4,22,32,0) 0%,rgba(4,18,28,.30) 100%);
+}
+/* 视频开启时，页面底色与卡片改成半透明，透出背景动画 */
+body.hasvid{background:transparent}
+body.hasvid .bg-layer{display:none}
+/* 卡片用较高不透明度保证可读；避免 backdrop-filter 在大卡片上的裁切接缝 */
+body.hasvid .timer-card,
+body.hasvid .box{
+  background:rgba(255,255,255,.955);
+}
+body.hasvid .topbar{
+  background:rgba(238,250,248,.90);
+}
+body.hasvid .task-in,
+body.hasvid .btn:not(.primary),
+body.hasvid .modes button:not(.on),
+body.hasvid .vb-parts button:not(.on),
+body.hasvid .vb-btn:not(.on){
+  background:rgba(255,255,255,.92);
+}
+
+/* 背景动画控制条 */
+.vidbar{
+  margin-top:14px;padding:12px 13px;border-radius:14px;
+  background:var(--miku-pale);border:1px dashed var(--line);
+}
+.vb-head{
+  display:flex;align-items:baseline;gap:8px;justify-content:space-between;
+  margin-bottom:9px;
+}
+.vb-title{font-size:11.5px;letter-spacing:1.6px;color:var(--miku-deep);font-weight:700}
+.vb-now{
+  font-size:11px;color:#fff;background:var(--miku-deep);
+  border-radius:99px;padding:2px 10px;font-weight:700;letter-spacing:.5px;
+  font-variant-numeric:tabular-nums;
+}
+.vb-parts{display:flex;flex-wrap:wrap;gap:6px}
+.vb-parts button{
+  font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+  border:1.5px solid var(--line);background:#fff;color:var(--sub);
+  border-radius:8px;padding:5px 11px;transition:all .16s;letter-spacing:.4px;
+}
+.vb-parts button:hover{border-color:var(--miku);color:var(--miku-deep);transform:translateY(-1px)}
+.vb-parts button.on{
+  border-color:transparent;color:#fff;
+  background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  box-shadow:0 3px 10px var(--miku-glow);
+}
+.vb-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:9px}
+.vb-btn{
+  font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+  border:1.5px solid var(--line);background:#fff;color:var(--miku-deep);
+  border-radius:8px;padding:5px 11px;transition:all .16s;
+}
+.vb-btn:hover{border-color:var(--miku);background:#fff;transform:translateY(-1px)}
+.vb-btn.on{background:var(--miku-deep);color:#fff;border-color:transparent}
+.vb-vol{display:flex;align-items:center;flex:1;min-width:96px}
+.vb-vol input{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:var(--line);border-radius:99px;outline:none;cursor:pointer;
+}
+.vb-vol input::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--miku);cursor:pointer;box-shadow:0 1px 4px rgba(15,91,87,.35);
+}
+.vb-vol input::-moz-range-thumb{
+  width:13px;height:13px;border:none;border-radius:50%;background:var(--miku);cursor:pointer;
+}
+/* 视频加载中的提示 */
+.vb-loading{opacity:.6;pointer-events:none}
+
+/* ============ 全屏视频模式：悬浮迷你计时条 ============ */
+.minibar{
+  display:none;
+  position:sticky;top:10px;z-index:60;
+  margin:0 auto 18px;max-width:660px;
+  grid-template-columns:auto 1fr auto;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:16px;
+  background:rgba(8,26,34,.62);
+  border:1px solid rgba(127,227,219,.28);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 8px 30px rgba(0,20,30,.45);
+}
+body.hasvid .minibar{display:grid}
+.mb-side{
+  font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+  color:#d8f4f1;background:rgba(255,255,255,.10);
+  border:1px solid rgba(127,227,219,.30);border-radius:9px;
+  padding:6px 12px;transition:all .16s;white-space:nowrap;
+}
+.mb-side:hover{background:rgba(57,197,187,.28);border-color:var(--miku)}
+.mb-center{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.mb-modes{display:flex;gap:4px}
+.mb-modes button{
+  font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+  color:#bfe3e0;background:transparent;border:1px solid transparent;
+  border-radius:7px;padding:4px 10px;transition:all .16s;
+}
+.mb-modes button:hover{background:rgba(255,255,255,.10)}
+.mb-modes button.on{
+  color:#062b2b;background:var(--miku);border-color:transparent;
+  box-shadow:0 0 12px var(--miku-glow);
+}
+.mb-time{
+  font-size:27px;font-weight:800;letter-spacing:1px;color:#fff;
+  font-variant-numeric:tabular-nums;line-height:1;
+  font-family:"Segoe UI",system-ui,sans-serif;
+  text-shadow:0 2px 14px rgba(0,20,30,.8);min-width:96px;text-align:center;
+}
+.mb-play{
+  font-family:inherit;width:34px;height:34px;border-radius:50%;cursor:pointer;
+  border:none;background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px var(--miku-glow);transition:transform .16s;flex:none;
+}
+.mb-play:hover{transform:scale(1.08)}
+.mb-meta{display:flex;flex-direction:column;align-items:flex-start;gap:2px;font-size:10.5px;color:#9dd6d2}
+.mb-clock{color:#7fe3db;font-variant-numeric:tabular-nums;font-weight:700}
+
+/* 切换面板 */
+.switchpanel{
+  display:none;position:sticky;top:70px;z-index:59;
+  margin:0 auto 16px;max-width:660px;
+  padding:14px 16px;border-radius:16px;
+  background:rgba(8,26,34,.80);
+  border:1px solid rgba(127,227,219,.28);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 10px 34px rgba(0,20,30,.5);
+}
+.switchpanel.show{display:block}
+.sp-head{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11.5px;letter-spacing:1.4px;color:var(--miku);font-weight:700;margin-bottom:11px;
+}
+.sp-x{
+  font-family:inherit;background:transparent;border:none;color:#9dd6d2;
+  font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;
+}
+.sp-x:hover{background:rgba(255,255,255,.12);color:#fff}
+.sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px}
+.sp-grid button{
+  font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  color:#cfeae7;background:rgba(255,255,255,.09);
+  border:1px solid rgba(127,227,219,.22);border-radius:9px;
+  padding:9px 6px;transition:all .16s;
+}
+.sp-grid button:hover{background:rgba(57,197,187,.26);border-color:var(--miku);color:#fff}
+.sp-grid button.on{
+  color:#062b2b;background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  border-color:transparent;box-shadow:0 0 14px var(--miku-glow);
+}
+.sp-tools{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
+.sp-btn{
+  font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  color:#cfeae7;background:rgba(255,255,255,.09);
+  border:1px solid rgba(127,227,219,.22);border-radius:9px;
+  padding:6px 12px;transition:all .16s;
+}
+.sp-btn:hover{background:rgba(57,197,187,.26);color:#fff}
+.sp-btn.on{color:#062b2b;background:var(--miku);border-color:transparent}
+.sp-vol{display:flex;align-items:center;flex:1;min-width:100px}
+.sp-vol input{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:rgba(255,255,255,.22);border-radius:99px;outline:none;cursor:pointer;
+}
+.sp-vol input::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--miku);cursor:pointer;
+}
+
+/* 设置面板把手（避开底部播放条） */
+.panel-handle{
+  display:none;position:fixed;right:16px;bottom:104px;z-index:70;
+  font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+  color:#d8f4f1;background:rgba(8,26,34,.80);
+  border:1px solid rgba(127,227,219,.32);border-radius:99px;
+  padding:9px 16px;transition:all .16s;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+body.hasvid .panel-handle{display:block}
+.panel-handle:hover{background:rgba(57,197,187,.34);border-color:var(--miku)}
+
+/* ============ 网易云风格播放器 · 底部横条 + 向上弹出的播放列表 ============ */
+/* 固定定位容器锚在底部，列表在横条上方展开 —— 整体「往上」生长 */
+.mp{
+  position:fixed;left:14px;right:auto;bottom:14px;z-index:82;
+  display:flex;justify-content:flex-start;pointer-events:none;
+}
+.mp.hide{display:none}
+body.mp-hide .mp{display:none}
+.mp-shell{
+  width:310px;max-width:310px;   /* 迷你条固定宽度 */
+  background:rgba(255,255,255,.90);
+  border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 12px 40px rgba(15,91,87,.18);
+  overflow:hidden;pointer-events:auto;
+  backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);
+}
+
+/* ---------- 播放列表（向上展开） ---------- */
+.mp-list{
+  max-height:0;opacity:0;overflow:hidden;
+  transition:max-height .30s cubic-bezier(.4,0,.2,1),opacity .20s;
+}
+.mp.open .mp-list{max-height:min(52vh,392px);opacity:1}
+.mp-list-head{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--miku-pale),rgba(255,255,255,.6));
+}
+.mp-lh-ic{
+  width:22px;height:22px;border-radius:7px;flex:none;
+  background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;
+}
+.mp-lh-t{font-size:13px;font-weight:800;letter-spacing:.6px;color:var(--ink);white-space:nowrap}
+.mp-lh-n{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.mp-playall{
+  font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;flex:none;
+  color:#fff;background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  border:none;border-radius:99px;padding:6px 14px;transition:all .16s;
+  box-shadow:0 3px 10px var(--miku-glow);
+}
+.mp-playall:hover{transform:translateY(-1px);box-shadow:0 6px 16px var(--miku-glow)}
+.mp-x{
+  font-family:inherit;background:transparent;border:none;cursor:pointer;flex:none;
+  color:var(--sub);font-size:14px;padding:3px 7px;border-radius:8px;line-height:1;
+}
+.mp-x:hover{background:var(--miku-pale);color:var(--miku-deep)}
+
+.mp-cols{
+  display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,32%);
+  gap:10px;padding:7px 14px 6px;
+  font-size:11px;color:var(--sub);letter-spacing:.6px;
+  border-bottom:1px solid #eef6f5;
+}
+.mp-cols span:first-child{text-align:center}
+.mp-rows{max-height:calc(min(52vh,392px) - 82px);overflow-y:auto;overscroll-behavior:contain}
+.mp-rows::-webkit-scrollbar{width:7px}
+.mp-rows::-webkit-scrollbar-thumb{background:var(--miku-soft);border-radius:9px}
+.mp-rows::-webkit-scrollbar-thumb:hover{background:var(--miku)}
+.mp-row{
+  display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,32%);
+  gap:10px;align-items:center;padding:0 14px;height:42px;
+  font-size:13px;cursor:pointer;transition:background .14s;
+}
+.mp-row:hover{background:var(--miku-pale)}
+.mp-row .no{
+  text-align:center;font-size:12px;color:#9db9b6;
+  font-variant-numeric:tabular-nums;position:relative;
+}
+.mp-row .no .play{
+  display:none;color:var(--miku-deep);font-size:11px;
+}
+.mp-row:hover .no .n{display:none}
+.mp-row:hover .no .play{display:inline}
+.mp-row .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2c4a48}
+.mp-row .nm .tag{
+  font-size:10px;color:#a4bdb9;margin-left:6px;font-variant-numeric:tabular-nums;
+}
+.mp-row .ar{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#8aa8a5;font-size:12px}
+.mp-row.on{background:linear-gradient(90deg,rgba(57,197,187,.16),rgba(57,197,187,.02))}
+.mp-row.on .nm{color:var(--miku-deep);font-weight:700}
+.mp-row.on .ar{color:var(--miku-deep);opacity:.8}
+.mp-row.on .no .n{display:none}
+.mp-row.on .no .eq{display:flex}
+.mp-row .no .eq{display:none;align-items:flex-end;justify-content:center;gap:2px;height:13px}
+.mp-row .no .eq i{width:2px;border-radius:2px;background:var(--miku);height:100%;
+  transform-origin:bottom;animation:eq .9s ease-in-out infinite}
+.mp-row .no .eq i:nth-child(1){height:55%;animation-delay:-.15s}
+.mp-row .no .eq i:nth-child(2){height:100%}
+.mp-row .no .eq i:nth-child(3){height:40%;animation-delay:-.45s}
+@keyframes eq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+.mp:not(.playing) .mp-row .no .eq i{animation-play-state:paused}
+
+/* ---------- 底部横条 ---------- */
+.mp-prog{
+  height:3px;background:var(--miku-pale);position:relative;cursor:pointer;
+  transition:height .14s;
+}
+.mp-prog:hover{height:6px}
+.mp-prog i{
+  position:absolute;left:0;top:0;bottom:0;width:0;
+  background:linear-gradient(90deg,var(--miku-soft),var(--miku),var(--miku-deep));
+  border-radius:0 99px 99px 0;
+}
+.mp-prog b{
+  position:absolute;width:11px;height:11px;border-radius:50%;top:50%;left:0;
+  transform:translate(-50%,-50%) scale(0);
+  background:#fff;border:2px solid var(--miku);box-shadow:0 1px 5px rgba(15,91,87,.3);
+  transition:transform .14s;pointer-events:none;
+}
+.mp-prog:hover b{transform:translate(-50%,-50%) scale(1)}
+.mp-prog.zero i{background:transparent}
+
+.mp-bar{max-height:92px;overflow:hidden}   /* 兜底：内部元素意外撑高时不会把整条播放器拉长 */
+.mp-bar-in{display:flex;align-items:center;gap:12px;padding:8px 12px}
+.mp-cover{
+  width:44px;height:44px;border-radius:10px;flex:none;overflow:hidden;
+  background:linear-gradient(135deg,var(--miku-soft),var(--miku-deep));
+  position:relative;box-shadow:0 2px 10px rgba(15,91,87,.18);
+  cursor:pointer;
+}
+.mp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.mp-cover .ph{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:17px;font-weight:800;
+}
+.mp.playing .mp-cover{animation:coverSpin 14s linear infinite;border-radius:50%}
+@keyframes coverSpin{to{transform:rotate(360deg)}}
+
+.mp-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center}
+.mp-title{
+  font-size:13.5px;font-weight:700;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.mp-artist{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-title .err{color:var(--warn);font-weight:700}
+
+.mp-time{
+  font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;flex:none;
+  letter-spacing:.3px;
+}
+.mp-time b{color:var(--miku-deep);font-weight:700}
+
+.mp-tools{display:flex;align-items:center;gap:3px;flex:none}
+.mp-ic{
+  font-family:inherit;cursor:pointer;border:none;background:transparent;
+  color:var(--miku-deep);font-size:15px;line-height:1;
+  width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.mp-ic:hover{background:var(--miku-pale);transform:translateY(-1px)}
+.mp-ic.dim{color:#a9c3c0}
+.mp-ic.on{background:var(--miku-pale)}
+.mp-play{
+  font-family:inherit;cursor:pointer;border:none;flex:none;
+  width:40px;height:40px;border-radius:50%;color:#fff;font-size:15px;
+  background:linear-gradient(135deg,var(--miku),var(--miku-deep));
+  box-shadow:0 4px 14px var(--miku-glow);
+  display:flex;align-items:center;justify-content:center;transition:transform .16s;
+}
+.mp-play:hover{transform:scale(1.07)}
+.mp-play:active{transform:scale(.96)}
+.mp-count{
+  position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;padding:0 3px;
+  background:var(--miku-deep);color:#fff;font-size:9.5px;font-weight:800;
+  border-radius:99px;display:flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;
+}
+.mp-ic.mp-w{position:relative;width:auto;padding:0 9px;gap:5px;font-size:12.5px;font-weight:700}
+
+.mp-vol{display:flex;align-items:center;width:0;overflow:hidden;transition:width .2s;flex:none}
+.mp-tools:hover .mp-vol,.mp-vol.pin{width:78px;margin-right:4px}
+.mp-vol input{
+  width:78px;height:4px;-webkit-appearance:none;appearance:none;
+  background:var(--line);border-radius:99px;outline:none;cursor:pointer;
+}
+.mp-vol input::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--miku);cursor:pointer;box-shadow:0 1px 4px rgba(15,91,87,.35);
+}
+.mp-vol input::-moz-range-thumb{
+  width:12px;height:12px;border:none;border-radius:50%;background:var(--miku);cursor:pointer;
+}
+
+/* 收起后的小圆标（与迷你条同侧：左下角） */
+.mp-open{
+  display:none;position:fixed;left:14px;right:auto;bottom:14px;z-index:82;
+  font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+  color:var(--miku-deep);background:rgba(255,255,255,.96);
+  border:1px solid var(--line);border-radius:99px;padding:9px 16px;
+  box-shadow:0 6px 20px rgba(15,91,87,.18);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.mp-open:hover{border-color:var(--miku);background:var(--miku-pale)}
+body.mp-hide .mp-open{display:block}
+
+/* 视频模式（深色背景）下把横条调成毛玻璃深色，避免白色块太抢眼 */
+body.hasvid .mp-shell{
+  background:rgba(255,255,255,.88);
+  border-color:rgba(127,227,219,.34);
+  box-shadow:0 12px 44px rgba(0,20,30,.5);
+}
+body.hasvid .mp-list-head{
+  background:linear-gradient(180deg,rgba(230,247,245,.94),rgba(255,255,255,.72));
+}
+
+@media (max-width:720px){
+  .mp-time,.mp-cols span:nth-child(3),.mp-row .ar{display:none}
+  .mp-row,.mp-cols{grid-template-columns:30px minmax(0,1fr)}
+  .mp-tools .mp-vol{display:none}
+  .mp-cover{width:40px;height:40px}
+  .mp-title{font-size:12.5px}
+}
+@media (max-width:520px){
+  .mp{left:8px;right:auto;bottom:8px}
+  .mp-open{left:8px;right:auto;bottom:8px}
+  .mp-ic{width:31px;height:31px}
+  .mp-play{width:37px;height:37px}
+  .mp-ic.mp-w{padding:0 7px}
+}
+
+/* ============ 310px 迷你条：控件精简与尺寸压缩 ============ */
+.mp-bar-in{gap:6px;padding:7px 9px}
+.mp-cover{width:36px;height:36px;border-radius:9px}
+.mp-cover .ph{font-size:14px}
+.mp-title{font-size:12px}
+.mp-artist{font-size:10.5px}
+.mp-ic{width:28px;height:28px;font-size:14px;border-radius:8px}
+.mp-play{width:32px;height:32px;font-size:14px}
+.mp-ic.mp-w{padding:0 6px;gap:3px;font-size:11px}
+/* 迷你条只保留：封面 / 歌名 / 播放 / 下一首 / 列表 / 收起 */
+.mp-time{display:none}
+.mp-tools .mp-vol,
+.mp-tools #mpVolBtn,
+.mp-tools #mpMode,
+.mp-tools #mpPrev{display:none}
+.mp-tools #mpCountNum{display:none}
+.mp-tools #mpMin{width:18px;font-size:11px}
+/* 列表也按 310px 宽排两列 */
+.mp-list-head{gap:6px;padding:9px 10px}
+.mp-lh-ic{width:20px;height:20px;border-radius:6px;font-size:10px}
+.mp-lh-t{font-size:12px;letter-spacing:.3px}
+.mp-lh-n{display:none}
+.mp-playall{padding:5px 10px;font-size:11px}
+.mp-cols{grid-template-columns:26px minmax(0,1fr);gap:8px;padding:6px 10px 5px}
+.mp-cols span:nth-child(3){display:none}
+.mp-row{grid-template-columns:26px minmax(0,1fr);gap:8px;padding:0 10px;font-size:12.5px}
+.mp-row .ar{display:none}
+
+/* 视频模式下：隐藏常规卡片布局，只留视频 + 迷你条 */
+body.hasvid .topbar{display:none}
+body.hasvid .timer-card{display:none}
+body.hasvid .miku-strip{display:none}
+/* 设置面板（⚙ 设置）收起 / 展开 —— 视频模式下的唯一设置区 */
+body.hasvid .side{
+  display:none;max-width:660px;width:100%;margin:0 auto;
+}
+body.hasvid.panels .side{display:flex;animation:sideIn .22s ease}
+@keyframes sideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+body.hasvid.panels .box{background:rgba(255,255,255,.955)}
+
+/* 视频模式下：正文贴到底部（原快捷入口与版权说明已移除） */
+body.hasvid .wrap{
+  padding-top:14px;
+  padding-bottom:104px;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+}
+/* 视频模式下把「漂浮音符」压暗，别抢画面 */
+body.hasvid .notes{opacity:.35}
+
+/* ---------- 完成弹层 ---------- */
+.overlay{
+  position:fixed;inset:0;z-index:99;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(13,43,42,.42);backdrop-filter:blur(5px);
+}
+.overlay.show{display:flex;animation:fadein .28s ease}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.done-card{
+  background:var(--card);border-radius:24px;padding:34px 40px;text-align:center;
+  box-shadow:0 24px 70px rgba(15,91,87,.32);max-width:352px;
+  animation:pop .34s cubic-bezier(.2,1.3,.5,1);
+  border:1px solid var(--line);
+}
+@keyframes pop{from{transform:scale(.86);opacity:0}to{transform:scale(1);opacity:1}}
+.done-card .big{font-size:46px;margin-bottom:8px}
+.done-card h3{font-size:20px;letter-spacing:2px;margin-bottom:9px;color:var(--miku-dark)}
+.done-card p{font-size:13.5px;color:var(--sub);line-height:1.9;margin-bottom:20px}
+.done-card .actions{margin-top:0}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:860px){
+  .stage{grid-template-columns:1fr}
+  .side{order:2}
+  .miku-strip{min-height:0}
+  .miku-strip .txt{max-width:none;padding:172px 20px 22px}
+  .miku-strip .artbg{background-position:56% 78%}
+  .miku-strip .veil{
+    background:linear-gradient(0deg,
+      rgba(0,12,32,.95) 0%,
+      rgba(0,16,40,.88) 42%,
+      rgba(0,20,48,.34) 68%,
+      rgba(0,24,56,.06) 100%);
+  }
+  .miku-strip .txt h2{font-size:20px}
+  .miku-strip .wm{font-size:48px;right:16px;bottom:12px}
+}
+@media (max-width:520px){
+  .wrap{padding:0 12px 116px}
+  .dial,.dial svg{width:236px;height:236px}
+  .dial .time{font-size:47px}
+  .timer-card{padding:20px 15px 18px;border-radius:22px}
+  .btn.primary{padding:12px 32px;font-size:15px}
+  .topbar{padding:9px 12px;margin:0 -12px 16px}
+  .topbar .total{display:none}
+  .miku-strip .txt{padding:148px 16px 20px}
+  .miku-strip .txt h2{font-size:18px}
+  .miku-strip .txt p{font-size:12.5px}
+  .miku-strip .txt .eyebrow{letter-spacing:3px;font-size:10.5px}
+}
+</style>
+</head>
+<body class="hasvid" data-page-node-id="FfRCxCxyZ9P1At98WyLdCK">
+
+<!-- 背景：Study With Miku 视频层（最底） -->
+<div class="vid-layer" id="vidLayer" data-page-node-id="0PN4FltwlbiJzpcJu73lYM">
+  <video id="bgVideo" class="bgv" playsinline preload="metadata" loop data-page-node-id="hLECbVo9e68eU0Amvv0lJG"></video>
+  <div class="vid-veil" data-page-node-id="IP6LEyecWOv3DZBbZsVMwj"></div>
+</div>
+
+<!-- 背景 -->
+<div class="bg-layer" id="bgLayer" data-page-node-id="A6yeSkIdk5T0qJMZEO2c0Q">
+  <div class="grid" data-page-node-id="gpyEnxeGIRHVSIV8cPsOgG"></div>
+  <div class="beam b1" data-page-node-id="3nRESrK4VDKJzsJ2M9AnvZ"></div>
+  <div class="beam b2" data-page-node-id="osBrgzvobNK3S9moBxDSvc"></div>
+  <div class="orb o1" data-page-node-id="dZYt7ThycVALPXBiiytjgo"></div>
+  <div class="orb o2" data-page-node-id="hkrbn6phayhmLE8yHIgE6f"></div>
+</div>
+<div class="notes" id="notes" data-page-node-id="cVYIJarS5YMa3dl0tK0QDM"></div>
+
+<!-- 网易云风格播放器 · 底部横条 + 向上展开的播放列表 -->
+<audio id="au" preload="none" data-page-node-id="hia1fput8YO4w5Q76Mg5Ni"></audio>
+<div class="mp" id="mp" data-page-node-id="QJFmL60vhyU8PTHcAihTsy">
+  <div class="mp-shell" data-page-node-id="GugCOTAVqqUFSa2sq6iyKp">
+
+    <!-- 播放列表：从横条上方「往上」展开 -->
+    <div class="mp-list" id="mpList" data-page-node-id="BVIKoISIVih4fqA1FgQwGy">
+      <div class="mp-list-head" data-page-node-id="tKJTzWTKBbxksWasrF0e5j">
+        <div class="mp-lh-ic" data-page-node-id="mnISW6IpC6GEnEKFI9hMxJ">♪</div>
+        <div class="mp-lh-t" data-page-node-id="AYqsCDMysb8sRUwwEStUNq">播放列表</div>
+        <div class="mp-lh-n" id="mpPlName" data-page-node-id="hu5nAOIlEk0Qtk9R1g3IvZ">加载中…</div>
+        <button class="mp-playall" id="mpPlayAll" data-page-node-id="3NHmEVHGYMjTTUU3hvxjB6">▶ 播放全部</button>
+        <button class="mp-x" id="mpListClose" title="收起列表" data-page-node-id="oKFnfplLWDvCXlrXVWhEQw">✕</button>
+      </div>
+      <div class="mp-cols" data-page-node-id="71Gg3eBC9vMFAOrY0mfwjg"><span data-page-node-id="poIHqjb6ojaGOwmTwxlOaW">#</span><span data-page-node-id="VnUxwkVtqFvSMygiVnknvH">音乐标题</span><span data-page-node-id="FnOpVBmd3SlJSTQcSTaaaF">歌手</span></div>
+      <div class="mp-rows" id="mpRows" data-page-node-id="J1n8XXTRkGBkUVOzgVCeAF"></div>
+    </div>
+
+    <!-- 底部横条 -->
+    <div class="mp-bar" data-page-node-id="lnQuHT4YaPaNUqIey4qwxR">
+      <div class="mp-prog" id="mpProg" data-page-node-id="A5Z7h9kmElElNZXY8MD5cL"><i id="mpProgFill" data-page-node-id="qLSpddtK2PaHnvUek81sO4"></i><b id="mpProgDot" data-page-node-id="lD6z37Y6572GtDjJt52fZa"></b></div>
+      <div class="mp-bar-in" data-page-node-id="keEjh5UDCrbG7yBRHoHUkn">
+        <div class="mp-cover" id="mpCover" title="展开播放列表" data-page-node-id="9DVvFFgKywgAOEXWjVi7fQ">
+          <img id="mpCoverImg" alt="" referrerpolicy="no-referrer" data-page-node-id="9Y2zRCtYocpbOVK310kQlz">
+          <span class="ph" data-page-node-id="9mS92OzKm6ZOBTSbD8LVAw">♪</span>
+        </div>
+        <div class="mp-info" data-page-node-id="aWRWBRTR3qC9nP6HUxDaV2">
+          <div class="mp-title" id="mpTitle" data-page-node-id="gmzuArfS6OhJ7vwe2x0smO">还没开始播放</div>
+          <div class="mp-artist" id="mpArtist" data-page-node-id="7nfQv9h33Gl87EHH7YIAQw">STUDY WITH MIKU · 共 124 首</div>
+        </div>
+        <div class="mp-time" data-page-node-id="kAG7y9kb20NDdWsQg6ASFA"><b id="mpCur" data-page-node-id="2kr7bBIG0IoQTC5voMYfLn">00:00</b> / <span id="mpDur" data-page-node-id="HIjcKQQRouW8AWQBASfwqs">00:00</span></div>
+        <div class="mp-tools" data-page-node-id="dFwsNf0E88hkUNny5sv3nV">
+          <div class="mp-vol" data-page-node-id="YmByNvM6jNuNtAu8E5C1qs"><input id="mpVol" type="range" min="0" max="100" value="70" data-page-node-id="GOagGoc6XD5BaSfzsICM0A"></div>
+          <button class="mp-ic" id="mpVolBtn" title="音量" data-page-node-id="JCOWFxwGP7ChiWCABjE54x">🔊</button>
+          <button class="mp-ic" id="mpMode" title="播放模式：列表循环" data-page-node-id="Lr9c1dsb44P3cyJuNcxqbi">🔁</button>
+          <button class="mp-ic" id="mpPrev" title="上一首" data-page-node-id="ZFDc7YcQB7iFLozOFyXeN9">⏮</button>
+          <button class="mp-play" id="mpPlay" title="播放 / 暂停" data-page-node-id="MCBtPc2JfmFDirHAuHZTjm">▶</button>
+          <button class="mp-ic" id="mpNext" title="下一首" data-page-node-id="XERwfQ9Xb9bGn10xZGmUg1">⏭</button>
+          <button class="mp-ic mp-w" id="mpCount" title="播放列表" data-page-node-id="8X8c0fQD29ftXut9DT8CAE">☰ <span id="mpCountNum" data-page-node-id="pvsZK2yOfGMmcncTxTOguc">124</span></button>
+          <button class="mp-ic" id="mpMin" title="收起播放器" data-page-node-id="lNGayRmGkLGV5Buc1V3YFQ">▾</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<button class="mp-open" id="mpOpen" data-page-node-id="37LXSAtA5okKnqXjCyED20">🎵 音乐</button>
+
+<div class="wrap" data-page-node-id="6djXyVdi2oIjmX1wxLsKNk">
+
+  <!-- 全屏视频模式下悬浮的迷你计时条（参考 study.mikumod.com） -->
+  <div class="minibar" id="minibar" data-page-node-id="Dz4EkzYkkoGLTpE7hWUZxK">
+    <button class="mb-side" id="mbSwitch" title="切换背景动画" data-page-node-id="EX8CypmAbDF2M7Si7X49V0">切换</button>
+    <div class="mb-center" data-page-node-id="1HQ7BXBj6c9yd9HLevRJnR">
+      <div class="mb-modes" id="mbModes" data-page-node-id="lmlQy5uYW5RRPlUkL0gkzy">
+        <button data-mode="focus" class="on" data-page-node-id="drGf9p70yYoRCsIyLm0eQH">专注</button>
+        <button data-mode="short" data-page-node-id="cqt6Upe8s5sO0pg68JwtcI">短休</button>
+        <button data-mode="long" data-page-node-id="LxEuQOmCvGmHapCt3reVFk">长休</button>
+      </div>
+      <div class="mb-time" id="mbTime" data-page-node-id="GKkebzyCPSbRCsbAFTyObJ">39:00</div>
+      <button class="mb-play" id="mbPlay" title="开始 / 暂停" data-page-node-id="NCbcJTJ5JS0gsn0YKdVuaF">▶</button>
+      <div class="mb-meta" data-page-node-id="hQYPMHC0MjfMHuxeN98UNs">
+        <span id="mbRound" data-page-node-id="Hcs8wByl2sDVE354EUnBdA">第 1 个番茄</span>
+        <span class="mb-clock" id="mbClock" data-page-node-id="9wGwrRODOjC1efsKbQ8LHf">--:--</span>
+      </div>
+    </div>
+    <button class="mb-side" id="mbFull" title="全屏" data-page-node-id="W2zgLgB8GregDOziVDCRqo">全屏</button>
+  </div>
+
+  <!-- 悬浮的切换面板（点「切换」展开） -->
+  <div class="switchpanel" id="switchPanel" data-page-node-id="ZhwXbUSoQ6SNaqcAVBMZyT">
+    <div class="sp-head" data-page-node-id="Tp1DHljCJVx01jnI6oTjHH">
+      <span data-page-node-id="Y34MGoJQuv9GzLqCPYt89F">背景动画 · STUDY WITH MIKU</span>
+      <button class="sp-x" id="spClose" data-page-node-id="CNdSBcK17VrAHqagFl3vDi">✕</button>
+    </div>
+    <div class="sp-grid" id="spGrid" data-page-node-id="GmW5DKsIBqrQ9wNXi5Hk5J"></div>
+    <div class="sp-tools" data-page-node-id="CJmErtan2kgnA1wPoqm0AF">
+      <button class="sp-btn" id="spRandom" data-page-node-id="XYdmStUL2hlTeWMNG1Z8uD">🎲 随机换一个</button>
+    </div>
+  </div>
+
+  <!-- 收起 / 展开设置面板的把手 -->
+  <button class="panel-handle" id="panelHandle" title="显示或隐藏设置面板" data-page-node-id="Vh1ShjlDt4BR2B75lCsT1O">⚙ 设置</button>
+
+  <div class="side" id="sidePanel" data-page-node-id="HL4XgD8xAr2zHkjqfZvDA3">
+
+      <div class="box" data-page-node-id="n4Cb3i0PahZfZRYa8GOg8r">
+        <h3 data-page-node-id="lQd0ZF5ol3CgAGI7z5K32W">本轮任务</h3>
+        <input class="task-in" id="taskInput" maxlength="40"
+               placeholder="例如：背单词" data-page-node-id="X0HJ611arOXFY12juaMC0P">
+        <div class="row" style="margin-top:11px;margin-bottom:0" data-page-node-id="0OHHa1lne7xzztDu4YQb5U">
+          <label data-page-node-id="ieXA0wmDKkvHP8Yhx0JcT4">完成后自动进入下一阶段</label>
+          <span class="switch" data-page-node-id="nM6VzvmhStZseT9EXa4vl4">
+            <input type="checkbox" id="autoNext" checked data-page-node-id="PPqMVgIpCb6xUlmzg5ekqL">
+            <span class="sl" data-page-node-id="VaOhjo2ug70398IGgIczy2"></span>
+          </span>
+        </div>
+        <div class="row" style="margin-bottom:0" data-page-node-id="Z3kks4cqLyABn3hWnNHnKM">
+          <label data-page-node-id="zQnx8pD53qHvGJmRRiJdGF">结束提示音</label>
+          <span class="switch" data-page-node-id="R7cWVzuNMmsQtIiqdEfsq6">
+            <input type="checkbox" id="soundOn" checked data-page-node-id="fNAEQGEXO8ZF2qzwd2BlO7">
+            <span class="sl" data-page-node-id="Q2HyNpHNL6jwJLXKFangdB"></span>
+          </span>
+        </div>
+      </div>
+
+      <div class="box" data-page-node-id="ylnIyk9CIIp9YDHZgQ1995">
+        <h3 data-page-node-id="kvQEJ0WMYWLCutPpVzHw61">时长设置</h3>
+        <div class="row" data-page-node-id="XCasSzyWTdURbXlmkXsDQ6">
+          <label data-page-node-id="k7Pt4bxocJ9Vn2GjmZRsqt">专注</label>
+          <div class="stepper" data-page-node-id="MCEkmMpOBl17LUdyeskVsI">
+            <button data-step="focus" data-d="-1" data-page-node-id="34cOeaeYMJJMIkfh7DtGBq">−</button>
+            <span class="val" id="vFocus" data-page-node-id="dODCu6To3Ev3UYbaHOYppF">39</span>
+            <button data-step="focus" data-d="1" data-page-node-id="L5jHCGC5Bb8GQfsi4vszdE">+</button>
+          </div>
+        </div>
+        <div class="row" data-page-node-id="sFr3AUqG04rLxMf6sknq8W">
+          <label data-page-node-id="UrcSMQkD2Q9kGv19KXOcls">短休</label>
+          <div class="stepper" data-page-node-id="9NaBhAOBippKFG8SXT1Hso">
+            <button data-step="short" data-d="-1" data-page-node-id="llG3VFHqzxAlWV45JLYfqH">−</button>
+            <span class="val" id="vShort" data-page-node-id="mF01TQo14TOykNZV0bUkGC">5</span>
+            <button data-step="short" data-d="1" data-page-node-id="tj8pL1BbGTB2cItnMOaNIM">+</button>
+          </div>
+        </div>
+        <div class="row" data-page-node-id="mrVIBGQr955q5XaekXuO7v">
+          <label data-page-node-id="YkT6QWqwXWGtBtVMWegdks">长休</label>
+          <div class="stepper" data-page-node-id="7hFLeLgg6C5Au4lQ8t9rFm">
+            <button data-step="long" data-d="-1" data-page-node-id="3mwJwuo8tCRD7OK6xmBSJb">−</button>
+            <span class="val" id="vLong" data-page-node-id="DsapepHtxYDDm2f3iBLx0C">15</span>
+            <button data-step="long" data-d="1" data-page-node-id="QETnWV2UPDUCz1akixDz7b">+</button>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:0" data-page-node-id="uQxd0T78g2LTYY2EprFsnT">
+          <label data-page-node-id="ayhNbNSeH4D8EeUkpTiDqH">每几个番茄后长休</label>
+          <div class="stepper" data-page-node-id="05prvXnX2DmBlGfpjhMylf">
+            <button data-step="cycle" data-d="-1" data-page-node-id="qPpbP9ReFT3zECmPRKYUOj">−</button>
+            <span class="val" id="vCycle" data-page-node-id="x1vaieK8C200HID2S5Vc6V">4</span>
+            <button data-step="cycle" data-d="1" data-page-node-id="PjDGugQE1KB23oKc7X4EHJ">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="box" data-page-node-id="jCboH8uD6zwb0EA9azmyFr">
+        <h3 data-page-node-id="tJW6pGm0JzLcBcQeGTEyWZ">今日统计</h3>
+        <div class="grid2" data-page-node-id="z5opkEvFOVWzLdHfDJnzC1">
+          <div class="mini" data-page-node-id="7EXgaoJvJfrVhaI1dnHD4y"><b id="stTomato" data-page-node-id="2hqQjAeXww9ABEtOyBDCZr">0</b><span data-page-node-id="ilPAzlpx4L3TMvnSXxRLJA">番茄数</span></div>
+          <div class="mini" data-page-node-id="C4S5uBpZLSLdgIlkbH6rTX"><b id="stMin" data-page-node-id="AdTmECcdHzgGYdoMy3JXMb">0</b><span data-page-node-id="0DwDnTPBvU6azHKIvBhEZH">专注分钟</span></div>
+          <div class="mini" data-page-node-id="ps7oE5M3FqgnZtmm0BDgIx"><b id="stStreak" data-page-node-id="WZrlGFIMbeFWlWugImjjP2">0</b><span data-page-node-id="7Wom8XrCtyHiFBuu9Nt4tF">连续天数</span></div>
+          <div class="mini" data-page-node-id="V0vZE1DR5QzjvErEMr4Awk"><b id="stAll" data-page-node-id="FYghBJ3Ar6t0CgyD13rRwi">0</b><span data-page-node-id="6jWHjG4ruqmoYGq2ElM88t">累计番茄</span></div>
+        </div>
+      </div>
+
+      <div class="box" data-page-node-id="JDFL7yKYqXkHrBxRoxeb1n">
+        <h3 data-page-node-id="aXZSNCHs4wuh8d1PDPysKu">完成记录</h3>
+        <div class="log" id="log" data-page-node-id="zRlxNAcLhsMm8p4muhmHDv"></div>
+      </div>
+
+  </div>
+
+</div>
+
+<!-- 完成弹层 -->
+<div class="overlay" id="overlay" data-page-node-id="MytxE2qwK52dPMgn20Zwwa">
+  <div class="done-card" data-page-node-id="tTZ3h2gGQHvKoisclEake1">
+    <div class="big" id="dnIcon" data-page-node-id="vtHDnQ1glLlIv9IzBwMgXm">🍅</div>
+    <h3 id="dnTitle" data-page-node-id="eaPeU1qPIuVbYv2wEkEqTJ">专注完成！</h3>
+    <p id="dnText" data-page-node-id="JBkERpnrUdMIqeUJZrZVnZ">休息一下，起来走动走动。</p>
+    <div class="actions" data-page-node-id="ClhqaosY9Z2l4IReTdFf4C">
+      <button class="btn primary" id="dnNext" data-page-node-id="QuMW54zmFFFaKQhfPYZJ62">开始休息</button>
+      <button class="btn" id="dnClose" data-page-node-id="EtWy1y1wi9uFURrPPVSjTR">稍后</button>
+    </div>
+  </div>
+</div>
+
+<!-- 歌单数据（由 _shared/miku/build_playlist.py 生成，含 124 首曲目信息） -->
+<script src="./_shared/miku/playlist.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var KEY = 'miku_pomodoro_v2';   // v2：默认专注时长改为 39 分钟
+  var CIRC = 2 * Math.PI * 128;          // 804.25
+  var PHASE_NAME = {focus:'专 注', short:'短 休 息', long:'长 休 息'};
+
+  // ---------- 状态 ----------
+  var S = {
+    mode:'focus',
+    running:false,
+    left:39*60,          // 剩余秒
+    total:39*60,         // 当前阶段总秒
+    round:1,             // 第几个番茄
+    cfg:{focus:39, short:5, long:15, cycle:4},
+    autoNext:true,
+    sound:true,
+    task:'',
+    today:{date:'', tomato:0, min:0},
+    all:0,
+    log:[]
+  };
+
+  var tickTimer = null;
+
+  // ---------- 存储 ----------
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+  }
+  function load(){
+    try{
+      var raw = storeGet(KEY);
+      if(!raw) return;
+      var o = JSON.parse(raw);
+      if(o.cfg) S.cfg = Object.assign(S.cfg, o.cfg);
+      if(typeof o.autoNext === 'boolean') S.autoNext = o.autoNext;
+      if(typeof o.sound === 'boolean') S.sound = o.sound;
+      if(typeof o.task === 'string') S.task = o.task;
+      if(typeof o.all === 'number') S.all = o.all;
+      if(Array.isArray(o.log)) S.log = o.log;
+      if(o.today && o.today.date === todayStr()){
+        S.today = o.today;
+      }else if(o.today){
+        // 跨天：保留累计，今日归零
+        S.today = {date:todayStr(), tomato:0, min:0};
+      }
+      if(typeof o.streak === 'number') S.streak = o.streak;
+      if(o.lastDay) S.lastDay = o.lastDay;
+    }catch(e){}
+  }
+  function save(){
+    storeSet(KEY, JSON.stringify({
+      cfg:S.cfg, autoNext:S.autoNext, sound:S.sound, task:S.task,
+      today:S.today, all:S.all, log:S.log,
+      streak:S.streak||0, lastDay:S.lastDay||''
+    }));
+  }
+
+  // ---------- 连续天数 ----------
+  function bumpStreak(){
+    var t = todayStr();
+    if(S.lastDay === t) return;
+    var y = new Date(); y.setDate(y.getDate()-1);
+    var yStr = y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+    if(S.lastDay === yStr) S.streak = (S.streak||0)+1;
+    else S.streak = 1;
+    S.lastDay = t;
+    save();
+  }
+
+  // ---------- 提示音（WebAudio，无需外部文件）----------
+  var actx = null;
+  function beep(){
+    if(!S.sound) return;
+    try{
+      if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state === 'suspended') actx.resume();
+      // 三声上扬的清亮音，呼应初音的音色
+      var notes = [880, 1108.7, 1318.5];
+      notes.forEach(function(f, i){
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine';
+        o.frequency.value = f;
+        var t0 = actx.currentTime + i * 0.17;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.26, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.42);
+        o.connect(g); g.connect(actx.destination);
+        o.start(t0); o.stop(t0 + 0.45);
+      });
+    }catch(e){}
+  }
+
+  // ---------- 渲染 ----------
+  var $ = function(id){ return document.getElementById(id); };
+  function fmt(sec){
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec/60), s = sec%60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }
+  function modeColor(){
+    return S.mode==='focus' ? 'var(--miku)' : S.mode==='short' ? 'var(--short)' : 'var(--long)';
+  }
+  function renderTicks(){
+    var g = $('ticks');
+    if(!g) return;                       // 视频模式没有大转盘
+    var h = '';
+    // 圆环中心半径 128、线宽 15（占 120.5~135.5）；刻度放在环内侧 106~114，干净不打架
+    for(var i=0;i<60;i++){
+      var a = (i/60)*Math.PI*2, maj = i%5===0;
+      var r1 = 114, r2 = maj ? 104 : 109.5;
+      var x1 = 147 + Math.cos(a)*r1, y1 = 147 + Math.sin(a)*r1;
+      var x2 = 147 + Math.cos(a)*r2, y2 = 147 + Math.sin(a)*r2;
+      h += '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+
+           '" opacity="'+(maj?'0.85':'0.38')+'"/>';
+    }
+    // SVG 整体已旋转 -90°，这里补偿回 90° 让刻度保持正向分布
+    g.setAttribute('transform','rotate(90 147 147)');
+    g.innerHTML = h;
+  }
+  function render(){
+    // 说明：现在只保留视频模式，大转盘（#time/#prog/#startBtn…）已从页面上移除，
+    // 这里统一做空值保护，逻辑一处不改，只是找不到元素就跳过。
+    var elTime = $('time');
+    if(elTime) elTime.textContent = fmt(S.left);
+    var elPhase = $('phase');
+    if(elPhase) elPhase.textContent = PHASE_NAME[S.mode];
+
+    // 圆环进度
+    var ratio = S.total > 0 ? (S.total - S.left) / S.total : 0;
+    ratio = Math.min(1, Math.max(0, ratio));
+    var prog = $('prog');
+    if(prog){
+      prog.setAttribute('stroke-dashoffset', String(CIRC * (1 - ratio)));
+      prog.setAttribute('stroke',
+        S.mode==='focus' ? 'url(#grad)' : S.mode==='short' ? 'url(#gradShort)' : 'url(#gradLong)');
+      prog.classList.toggle('zero', ratio <= 0.0005);
+    }
+
+    // 按钮文案
+    var b = $('startBtn');
+    if(b){
+      if(S.running){ b.textContent = '暂停'; }
+      else{
+        var started = S.left < S.total;
+        b.textContent = started ? '继续' : (S.mode==='focus' ? '开始专注' : '开始休息');
+      }
+    }
+
+    // 轮次
+    var elRound = $('rounds');
+    if(elRound) elRound.textContent = S.mode==='focus'
+      ? '第 '+S.round+' 个番茄'
+      : (S.mode==='long' ? '长休息 · 好好放松' : '短休息 · 起来动动');
+
+    // 任务名
+    var elTask = $('taskLabel');
+    if(elTask) elTask.textContent = S.task ? '· '+S.task : '';
+
+    // 模式按钮
+    document.querySelectorAll('.modes button').forEach(function(el){
+      el.classList.toggle('on', el.getAttribute('data-mode') === S.mode);
+    });
+    document.querySelectorAll('.modes button').forEach(function(el){
+      var m = el.getAttribute('data-mode');
+      el.textContent = m==='focus' ? '专注 '+S.cfg.focus
+                     : m==='short' ? '短休 '+S.cfg.short
+                     : '长休 '+S.cfg.long;
+    });
+
+    document.body.classList.toggle('running', S.running);
+
+    // 提示
+    var tip = $('tip');
+    if(tip){
+      if(S.mode==='focus'){
+        tip.textContent = S.task
+          ? '正在专注：'+S.task+'　—　只做这一件事。'
+          : '选个任务，按下开始 —— '+S.cfg.focus+' 分钟内只做这一件事。';
+      }else{
+        tip.textContent = S.mode==='long'
+          ? '长休息 '+S.cfg.long+' 分钟：离开座位、喝水、远眺。'
+          : '短休息 '+S.cfg.short+' 分钟：站起来伸个懒腰，别碰手机。';
+      }
+    }
+    renderStats();
+    if(typeof syncMinibar === 'function') syncMinibar();
+    document.title = (S.running? fmt(S.left)+' · ' : '') + '初音番茄钟';
+  }
+
+  function renderStats(){
+    var t = S.today;
+    if(t.date !== todayStr()){ t = S.today = {date:todayStr(), tomato:0, min:0}; save(); }
+    $('stTomato').textContent = t.tomato;
+    $('stMin').textContent = t.min;
+    $('stStreak').textContent = S.streak||0;
+    $('stAll').textContent = S.all;
+    // 顶部/底部统计条已移除，这里做空值保护
+    var tbT = $('tbToday'), tbC = $('tbCount');
+    if(tbT) tbT.textContent = t.min;
+    if(tbC) tbC.textContent = t.tomato;
+  }
+
+  function renderLog(){
+    var el = $('log');
+    if(!S.log.length){
+      el.innerHTML = '<div class="empty">还没有完成的番茄<br>完成第一个就会出现在这里</div>';
+      return;
+    }
+    el.innerHTML = S.log.slice(0, 40).map(function(x){
+      var cls = x.m==='focus' ? '' : (x.m==='short' ? 's' : 'l');
+      return '<div class="it"><span class="dot '+cls+'"></span>'+
+             '<span class="nm">'+esc(x.t||'未命名任务')+'</span>'+
+             '<span class="tm">'+esc(x.a)+'</span></div>';
+    }).join('');
+  }
+  function esc(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ---------- 计时逻辑 ----------
+  function setMode(mode, keepRound){
+    S.mode = mode;
+    S.total = S.cfg[mode] * 60;
+    S.left = S.total;
+    if(!keepRound && mode === 'focus'){ /* round 已在别处处理 */ }
+    render();
+  }
+  function start(){
+    if(S.running) return;
+    // 首次开始专注时，记录连续天数
+    if(S.mode === 'focus' && S.left === S.total) bumpStreak();
+    S.running = true;
+    var last = Date.now();
+    tickTimer = setInterval(function(){
+      var now = Date.now();
+      var dt = (now - last) / 1000;
+      last = now;
+      S.left -= dt;
+      if(S.left <= 0){
+        S.left = 0;
+        render();
+        stop();
+        complete();
+        return;
+      }
+      render();
+    }, 200);
+    render();
+    vidSyncWithTimer();
+  }
+  function stop(){
+    S.running = false;
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    render();
+    vidSyncWithTimer();
+  }
+  function complete(){
+    beep();
+    if(S.mode === 'focus'){
+      // 记一个番茄
+      S.today.tomato += 1;
+      S.today.min += S.cfg.focus;
+      S.all += 1;
+      S.log.unshift({
+        m:'focus', t:S.task || '专注',
+        a:new Date().getHours()+':'+('0'+new Date().getMinutes()).slice(-2)
+      });
+      if(S.log.length > 120) S.log.length = 120;
+      var isLong = (S.today.tomato % S.cfg.cycle === 0);
+      save();
+      renderStats(); renderLog();
+      showOverlay(isLong ? 'long' : 'short');
+    }else{
+      showOverlay('focus');
+    }
+  }
+  function showOverlay(next){
+    var isFocusNext = (next === 'focus');
+    $('dnIcon').textContent = isFocusNext ? '🍅' : (next==='long' ? '🌿' : '☕');
+    $('dnTitle').textContent = isFocusNext
+      ? '休息结束 · 继续加油'
+      : (next==='long' ? '一轮完成！该长休了' : '专注完成！');
+    var t = S.today.tomato;
+    $('dnText').innerHTML = isFocusNext
+      ? '休息够了，开始第 '+S.round+' 个番茄吧。'
+      : (next==='long'
+          ? '已经完成 <b>'+t+'</b> 个番茄，共专注 <b>'+S.today.min+'</b> 分钟。<br>长休 '+S.cfg.long+' 分钟，彻底放松一下。'
+          : '已完成 <b>'+t+'</b> 个番茄，共专注 <b>'+S.today.min+'</b> 分钟。<br>短休 '+S.cfg.short+' 分钟，别碰手机。');
+    $('dnNext').textContent = isFocusNext ? '开始专注' : '开始休息';
+    $('dnNext').setAttribute('data-next', next);
+    $('overlay').classList.add('show');
+  }
+  function hideOverlay(){ $('overlay').classList.remove('show'); }
+
+  function advance(){
+    // 决定下一个阶段
+    if(S.mode === 'focus'){
+      var isLong = (S.today.tomato % S.cfg.cycle === 0) && S.today.tomato > 0;
+      S.round += 1;
+      setMode(isLong ? 'long' : 'short');
+    }else{
+      setMode('focus');
+    }
+  }
+
+  // ---------- 事件 ----------
+  // 大转盘上的三个按钮在视频模式下已移除；保留绑定以便日后恢复普通模式
+  var elStart = $('startBtn');
+  if(elStart) elStart.onclick = function(){
+    if(S.running) stop();
+    else start();
+  };
+  var elReset = $('resetBtn');
+  if(elReset) elReset.onclick = function(){
+    stop();
+    S.left = S.total;
+    render();
+  };
+  var elSkip = $('skipBtn');
+  if(elSkip) elSkip.onclick = function(){
+    var wasRunning = S.running;
+    stop();
+    advance();
+    if(wasRunning) start();
+  };
+  document.querySelectorAll('.modes button').forEach(function(el){
+    el.onclick = function(){
+      stop();
+      var m = el.getAttribute('data-mode');
+      setMode(m);
+    };
+  });
+
+  // 时长微调
+  document.querySelectorAll('.stepper button').forEach(function(el){
+    el.onclick = function(){
+      var k = el.getAttribute('data-step'), d = parseInt(el.getAttribute('data-d'),10);
+      if(k === 'cycle'){
+        S.cfg.cycle = Math.min(12, Math.max(2, S.cfg.cycle + d));
+      }else{
+        // focus 5–90 分钟；休息 1–60 分钟
+        var lo = k==='focus' ? 5 : 1, hi = k==='focus' ? 90 : 60;
+        S.cfg[k] = Math.min(hi, Math.max(lo, S.cfg[k] + d));
+      }
+      $('vFocus').textContent = S.cfg.focus;
+      $('vShort').textContent = S.cfg.short;
+      $('vLong').textContent = S.cfg.long;
+      $('vCycle').textContent = S.cfg.cycle;
+      // 当前阶段若未开始，同步刷新
+      if(!S.running && S.left === S.total){ S.total = S.cfg[S.mode]*60; S.left = S.total; }
+      save(); render();
+    };
+  });
+
+  $('autoNext').checked = S.autoNext;
+  $('autoNext').onchange = function(){ S.autoNext = this.checked; save(); };
+  $('soundOn').checked = S.sound;
+  $('soundOn').onchange = function(){
+    S.sound = this.checked; save();
+    if(this.checked) beep();
+  };
+
+  var taskInput = $('taskInput');
+  taskInput.value = S.task;
+  taskInput.oninput = function(){ S.task = this.value.trim(); save(); render(); };
+
+  $('dnNext').onclick = function(){
+    hideOverlay();
+    advance();
+    start();
+  };
+  $('dnClose').onclick = function(){
+    hideOverlay();
+    advance();
+  };
+  $('overlay').onclick = function(e){ if(e.target === this) hideOverlay(); };
+
+  // 键盘：空格开始/暂停，R 重置
+  document.addEventListener('keydown', function(e){
+    var tag = (e.target.tagName||'').toLowerCase();
+    if(tag === 'input' || tag === 'textarea') return;    if(e.code === 'Space'){ e.preventDefault(); S.running ? stop() : start(); }
+    if(e.key === 'r' || e.key === 'R'){ stop(); S.left = S.total; render(); }
+  });
+
+  // 离开页面时把标题改回去
+  window.addEventListener('beforeunload', stop);
+
+  // ---------- 漂浮音符 ----------
+  (function initNotes(){
+    var box = $('notes');
+    var glyphs = ['♪','♫','♩','♬','♡','✦'];
+    var n = window.innerWidth < 620 ? 8 : 14;
+    var h = '';
+    for(var i=0;i<n;i++){
+      var left = Math.random()*100;
+      var dur = 15 + Math.random()*16;
+      var delay = -Math.random()*26;
+      var size = 13 + Math.random()*15;
+      var g = glyphs[Math.floor(Math.random()*glyphs.length)];
+      h += '<i style="left:'+left.toFixed(1)+'%;font-size:'+size.toFixed(0)+'px;'+
+           'animation-duration:'+dur.toFixed(1)+'s;animation-delay:'+delay.toFixed(1)+'s">'+g+'</i>';
+    }
+    box.innerHTML = h;
+  })();
+
+  // ---------- Study With Miku 背景动画 ----------
+  var VID_DIR = './_shared/miku/bg/';
+  var PARTS = [
+    {id:'bg1', file:'bg1.mp4', label:'海边', desc:'露台书店 · 明亮'},
+    {id:'bg2', file:'bg2.mp4', label:'厨房', desc:'厨房书桌 · 暖色'},
+    {id:'bg3', file:'bg3.mp4', label:'夜读', desc:'夜晚书桌 · 窗边'}
+  ];
+
+  var V = {
+    on:true,         // 只保留视频模式：背景动画常驻开启
+    cur:null,        // 当前 part id
+    syncPause:true   // 休息时自动暂停
+  };
+  var bgv = null;
+
+  // 存储：file:// 下 localStorage 有时不可靠，做三级兜底
+  function storeSet(k, v){
+    try{ localStorage.setItem(k, v); }catch(e){}
+    try{ sessionStorage.setItem(k, v); }catch(e){}
+  }
+  function storeGet(k){
+    var v = null;
+    try{ v = localStorage.getItem(k); }catch(e){}
+    if(v === null){ try{ v = sessionStorage.getItem(k); }catch(e){} }
+    return v;
+  }
+
+  function vidLoad(){
+    try{
+      var raw = storeGet(KEY + '_vid');
+      if(!raw) return;
+      var o = JSON.parse(raw);
+      // 只保留视频模式：不再读取历史里的 on 开关，始终保持开启
+      V.on = true;
+      if(typeof o.cur === 'string') V.cur = o.cur;
+      if(typeof o.syncPause === 'boolean') V.syncPause = o.syncPause;
+    }catch(e){}
+  }
+  function vidSave(){
+    storeSet(KEY + '_vid', JSON.stringify({
+      on:V.on, cur:V.cur, syncPause:V.syncPause
+    }));
+  }
+
+  // 渲染 part 按钮（两处：老控制条 + 新切换面板）
+  function renderVidParts(){
+    var box = $('vbParts');
+    if(box){
+      var h = '';
+      PARTS.forEach(function(p){
+        h += '<button data-part="'+p.id+'" title="'+p.desc+'">'+p.label+'</button>';
+      });
+      box.innerHTML = h;
+      box.querySelectorAll('button').forEach(function(b){
+        b.onclick = function(){ playPart(b.getAttribute('data-part'), false); };
+      });
+    }
+    var grid = $('spGrid');
+    if(grid){
+      var h2 = '';
+      PARTS.forEach(function(p){
+        h2 += '<button data-part="'+p.id+'">'+p.label+'<br><span style="font-size:10px;opacity:.72">'+p.desc+'</span></button>';
+      });
+      grid.innerHTML = h2;
+      grid.querySelectorAll('button').forEach(function(b){
+        b.onclick = function(){ playPart(b.getAttribute('data-part'), false); };
+      });
+    }
+  }
+
+  // 切换 / 播放某个 part；rand=true 时随机跳到片中位置
+  // 背景视频都没有音轨；muted 仅用于满足浏览器的自动播放策略。
+  function applyAudio(){
+    if(!bgv) return;
+    bgv.muted = true;
+  }
+
+  // 稳妥地播放：load() 之后立刻 play() 常因前一次加载未完成而抛 AbortError，
+  // 这里等到 canplay 再播，并保留 loop / muted 等设置。
+  function safePlay(){
+    if(!bgv) return;
+    if(bgv.readyState >= 3){                 // HAVE_FUTURE_DATA 及以上，可直接播
+      var pr = bgv.play();
+      if(pr && pr.catch) pr.catch(function(){});
+      return;
+    }
+    // 还没准备好：等 canplay（只挂一次，避免重复触发）
+    if(bgv.__waitingPlay) return;
+    bgv.__waitingPlay = true;
+    var kick = function(){
+      bgv.__waitingPlay = false;
+      bgv.removeEventListener('canplay', kick);
+      if(!V.on) return;
+      var pr = bgv.play();
+      if(pr && pr.catch) pr.catch(function(){});
+    };
+    bgv.addEventListener('canplay', kick);
+    // 兜底：2 秒后仍未 canplay 也试一次
+    setTimeout(function(){
+      if(bgv.__waitingPlay){ kick(); }
+    }, 2000);
+  }
+
+  function playPart(id, rand){
+    var p = null;
+    for(var i=0;i<PARTS.length;i++){ if(PARTS[i].id === id) p = PARTS[i]; }
+    if(!p){ p = PARTS[0]; }
+    if(!bgv){ return; }
+
+    var switching = (V.cur !== p.id);
+    if(switching){
+      V.cur = p.id;
+      V.on = true;
+      bgv.loop = true;
+      bgv.src = VID_DIR + p.file;
+      bgv.load();
+    }
+    V.on = true;
+
+    // 随机起播位置：跳过片头，避开开头几秒的标题画面
+    if(rand || switching){
+      var jump = function(){
+        try{
+          if(!rand) return;                 // 手动切换时从头播
+          var d = bgv.duration;
+          if(d && isFinite(d) && d > 20){
+            bgv.currentTime = 2 + Math.random() * (d - 6);
+          }
+        }catch(e){}
+      };
+      if(bgv.readyState >= 1) jump();
+      else bgv.addEventListener('loadedmetadata', jump, {once:true});
+    }
+
+    applyVid();
+    safePlay();
+    vidSave();
+  }
+
+  // 把一个随机 part 与随机位置一起应用
+  function randomBackground(){
+    var p = PARTS[Math.floor(Math.random() * PARTS.length)];
+    playPart(p.id, true);
+  }
+
+  // 依据状态刷新页面与控件
+  function applyVid(){
+    V.on = true;                        // 视频模式常驻
+    var layer = $('vidLayer');
+    if(layer){
+      layer.classList.toggle('on', V.on);
+    }
+    document.body.classList.toggle('hasvid', V.on);
+
+    var nowEl = $('vbNow');
+    if(nowEl){
+      nowEl.textContent = V.cur ? (function(){
+        for(var i=0;i<PARTS.length;i++){ if(PARTS[i].id===V.cur) return PARTS[i].label; }
+        return V.cur;
+      })() : '—';
+    }
+
+    document.querySelectorAll('#vbParts button').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-part') === V.cur);
+    });
+    document.querySelectorAll('#spGrid button').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-part') === V.cur);
+    });
+    syncMinibar();
+
+    var tb = $('vbToggle');
+    if(tb){
+      tb.textContent = V.on ? '隐藏背景' : '显示背景';
+      tb.classList.toggle('on', V.on);
+    }
+
+    // 背景视频无音轨，恒为静音（自动播放策略要求）
+    if(bgv){ bgv.muted = true; }
+
+    // 未启用时暂停，省资源
+    if(!V.on && bgv){ try{ bgv.pause(); }catch(e){} }
+  }
+
+  // 与番茄钟联动：专注播放，休息暂停
+  function vidSyncWithTimer(){
+    if(!V.on || !bgv || !V.syncPause) return;
+    if(S.running){
+      safePlay();
+    }else{
+      try{ bgv.pause(); }catch(e){}
+    }
+  }
+
+  // 同步悬浮迷你计时条
+  function syncMinibar(){
+    if(!$('mbTime')) return;
+    $('mbTime').textContent = fmt(S.left);
+    if($('mbPlay')) $('mbPlay').textContent = S.running ? '❚❚' : '▶';
+    if($('mbRound')){
+      $('mbRound').textContent = S.mode==='focus'
+        ? '第 '+S.round+' 个番茄'
+        : (S.mode==='long' ? '长休息' : '短休息');
+    }
+    document.querySelectorAll('#mbModes button').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-mode') === S.mode);
+    });
+    if($('mbClock')){
+      var now = new Date();
+      $('mbClock').textContent =
+        now.getHours() + ':' + ('0'+now.getMinutes()).slice(-2);
+    }
+  }
+
+  function initVid(){
+    bgv = $('bgVideo');
+    vidLoad();
+    renderVidParts();
+
+    // 默认选一个 part（没存过就随机）
+    if(!V.cur || !PARTS.some(function(p){ return p.id === V.cur; })){
+      V.cur = PARTS[Math.floor(Math.random() * PARTS.length)].id;
+    }
+
+    // 预载当前 part
+    bgv.loop = true;
+    bgv.muted = true;
+    bgv.src = VID_DIR + (function(){
+      for(var i=0;i<PARTS.length;i++){ if(PARTS[i].id===V.cur) return PARTS[i].file; }
+      return PARTS[0].file;
+    })();
+
+    // 页面加载时若上次是开启状态：自动播放（静音，满足浏览器策略）
+    if(V.on){
+      var boot = function(){
+        var pr = bgv.play();
+        if(pr && pr.catch){
+          pr.catch(function(){
+            // 自动播放被拒：等用户第一次点击再播
+            var kick = function(){
+              bgv.muted = true;
+              var p2 = bgv.play();
+              if(p2 && p2.catch) p2.catch(function(){});
+              document.removeEventListener('click', kick);
+              document.removeEventListener('keydown', kick);
+            };
+            document.addEventListener('click', kick, {once:true});
+            document.addEventListener('keydown', kick, {once:true});
+          });
+        }
+      };
+      boot();
+    }
+
+    // ---- 悬浮迷你计时条 ----
+    $('mbSwitch').onclick = function(){
+      $('switchPanel').classList.toggle('show');
+    };
+    $('spClose').onclick = function(){
+      $('switchPanel').classList.remove('show');
+    };
+    $('spRandom').onclick = function(){ randomBackground(); };
+
+    // 迷你条上的模式切换与播放
+    document.querySelectorAll('#mbModes button').forEach(function(b){
+      b.onclick = function(){
+        stop();
+        setMode(b.getAttribute('data-mode'));
+      };
+    });
+    $('mbPlay').onclick = function(){
+      if(S.running) stop(); else start();
+    };
+    $('mbFull').onclick = function(){
+      if(document.fullscreenElement){
+        document.exitFullscreen();
+      }else{
+        document.documentElement.requestFullscreen().catch(function(){});
+      }
+    };
+
+    // 设置面板展开/收起
+    $('panelHandle').onclick = function(){
+      var on = document.body.classList.toggle('panels');
+      this.textContent = on ? '✕ 收起设置' : '⚙ 设置';
+    };
+
+    // 底部网易云风格播放器
+    initMusic();
+
+    // 视频加载时给个弱化提示
+    bgv.addEventListener('waiting', function(){ $('vidLayer').classList.add('vb-loading'); });
+    bgv.addEventListener('playing', function(){ $('vidLayer').classList.remove('vb-loading'); });
+    bgv.addEventListener('canplay', function(){ $('vidLayer').classList.remove('vb-loading'); });
+    // 循环播放兜底（部分浏览器 loop 在 seek 后失效）
+    bgv.addEventListener('ended', function(){
+      try{ bgv.currentTime = 0; var pr = bgv.play(); if(pr && pr.catch) pr.catch(function(){}); }catch(e){}
+    });
+
+    applyVid();
+  }
+
+  // ============ 网易云风格播放器 · 底部横条 + 向上展开的歌单 ============
+  function initMusic(){
+    var PL = window.MIKU_PLAYLIST || {name:'播放列表', tracks:[]};
+    var TR = PL.tracks || [];
+    if(!TR.length) return;
+
+    var AU = $('au');
+    var MP = $('mp');
+    var M = { i:0, order:'list', vol:0.7, open:false, hide:false, bad:{} };
+    var MK = KEY + '_player';
+    var MODES = [
+      {k:'list',    ic:'🔁', t:'播放模式：列表循环'},
+      {k:'one',     ic:'🔂', t:'播放模式：单曲循环'},
+      {k:'shuffle', ic:'🔀', t:'播放模式：随机播放'}
+    ];
+    var SRC = function(id){ return 'https://music.163.com/song/media/outer/url?id='+id+'.mp3'; };
+
+    function mLoad(){
+      try{
+        var o = JSON.parse(storeGet(MK) || '{}');
+        if(typeof o.vol === 'number') M.vol = Math.min(1, Math.max(0, o.vol));
+        if(o.order) M.order = o.order;
+        if(typeof o.i === 'number' && o.i >= 0 && o.i < TR.length) M.i = o.i;
+        if(typeof o.hide === 'boolean') M.hide = o.hide;
+        if(typeof o.open === 'boolean') M.open = o.open;
+      }catch(e){}
+    }
+    function mSave(){
+      storeSet(MK, JSON.stringify({i:M.i, order:M.order, vol:M.vol, hide:M.hide, open:M.open}));
+    }
+
+    // ---------- 歌单渲染 ----------
+    function renderRows(){
+      $('mpRows').innerHTML = TR.map(function(t, i){
+        return '<div class="mp-row" data-i="'+i+'">'+
+                 '<div class="no"><span class="n">'+(i+1)+'</span>'+
+                   '<span class="play">▶</span>'+
+                   '<span class="eq"><i></i><i></i><i></i></span></div>'+
+                 '<div class="nm">'+esc(t.name)+'<span class="tag">'+fmt((t.dt||0)/1000)+'</span></div>'+
+                 '<div class="ar">'+esc(t.artist)+'</div>'+
+               '</div>';
+      }).join('');
+      $('mpRows').querySelectorAll('.mp-row').forEach(function(el){
+        el.onclick = function(){ playAt(parseInt(el.getAttribute('data-i'), 10)); };
+      });
+    }
+    function markCurrent(scroll){
+      var rows = $('mpRows').querySelectorAll('.mp-row');
+      for(var i = 0; i < rows.length; i++) rows[i].classList.toggle('on', i === M.i);
+      if(scroll && rows[M.i] && rows[M.i].scrollIntoView){
+        rows[M.i].scrollIntoView({block:'nearest'});
+      }
+    }
+    function renderMeta(){
+      var t = TR[M.i] || {};
+      $('mpTitle').textContent = t.name || '还没开始播放';
+      $('mpArtist').textContent = [t.artist, t.album].filter(Boolean).join(' · ');
+      var img = $('mpCoverImg');
+      if(t.pic){
+        if(img.getAttribute('src') !== t.pic) img.setAttribute('src', t.pic);
+        img.style.display = '';
+      }else{
+        img.style.display = 'none';
+      }
+      $('mpDur').textContent = fmt((t.dt || 0) / 1000);
+      if('mediaSession' in navigator){
+        try{
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: t.name || '', artist: t.artist || '', album: t.album || '',
+            artwork: t.pic ? [{src:t.pic, sizes:'300x300'}] : []
+          });
+        }catch(e){}
+      }
+    }
+    $('mpCoverImg').onerror = function(){ this.style.display = 'none'; };
+
+    // ---------- 播放控制 ----------
+    function playAt(i){
+      if(!TR.length) return;
+      if(i < 0) i = TR.length - 1;
+      if(i >= TR.length) i = 0;
+      M.i = i;
+      var t = TR[i];
+      renderMeta(); markCurrent(true); mSave();
+      AU.src = SRC(t.id);
+      try{ AU.currentTime = 0; }catch(e){}
+      var p = AU.play();
+      if(p && p.catch) p.catch(function(){});
+    }
+    function stepIdx(step){
+      if(M.order === 'shuffle') return Math.floor(Math.random() * TR.length);
+      var n = M.i + step;
+      if(n >= TR.length) n = 0;
+      if(n < 0) n = TR.length - 1;
+      return n;
+    }
+    // 跳过已知失败曲目
+    function nextGood(step){
+      var n = stepIdx(step), guard = 0;
+      while(M.bad[TR[n] && TR[n].id] && guard < TR.length){ n = (n + 1) % TR.length; guard++; }
+      return n;
+    }
+    function advance(auto){
+      if(auto && M.order === 'one'){ try{ AU.currentTime = 0; }catch(e){} AU.play(); return; }
+      playAt(nextGood(1));
+    }
+
+    // ---------- 事件绑定 ----------
+    $('mpPlay').onclick = function(){
+      if(!AU.getAttribute('src')){ playAt(M.i); return; }
+      if(AU.paused){ var p = AU.play(); if(p && p.catch) p.catch(function(){}); }
+      else AU.pause();
+    };
+    $('mpPrev').onclick = function(){ playAt(nextGood(-1)); };
+    $('mpNext').onclick = function(){ advance(false); };
+    $('mpPlayAll').onclick = function(){ M.bad = {}; playAt(0); };
+
+    AU.onplay  = function(){ MP.classList.add('playing'); $('mpPlay').textContent = '❚❚'; };
+    AU.onpause = function(){ MP.classList.remove('playing'); $('mpPlay').textContent = '▶'; };
+    AU.onended = function(){ advance(true); };
+    AU.onerror = function(){
+      if(!AU.error) return;          // 只是切换曲目时被打断，忽略
+      var t = TR[M.i];
+      if(t) M.bad[t.id] = 1;
+      var n = Object.keys(M.bad).length;
+      if(n >= TR.length){
+        $('mpTitle').innerHTML = '<span class="err">全部曲目都无法播放</span>';
+        $('mpArtist').textContent = '请检查网络，或改用网易云客户端';
+        MP.classList.remove('playing'); $('mpPlay').textContent = '▶';
+        return;
+      }
+      $('mpTitle').innerHTML = '<span class="err">这首放不了，已跳过</span>';
+      setTimeout(function(){ advance(true); }, 1100);
+    };
+
+    // 进度条
+    function paintProgress(){
+      var d = AU.duration;
+      if(!isFinite(d) || d <= 0) d = ((TR[M.i] || {}).dt || 0) / 1000;
+      var cur = AU.currentTime || 0;
+      var ratio = d > 0 ? Math.min(1, Math.max(0, cur / d)) : 0;
+      $('mpProgFill').style.width = (ratio * 100) + '%';
+      $('mpProgDot').style.left = (ratio * 100) + '%';
+      $('mpProg').classList.toggle('zero', ratio <= 0.001);
+      $('mpCur').textContent = fmt(cur);
+      if(d > 0) $('mpDur').textContent = fmt(d);
+    }
+    AU.ontimeupdate = paintProgress;
+    AU.onloadedmetadata = paintProgress;
+    AU.ondurationchange = paintProgress;
+
+    var progEl = $('mpProg'), seeking = false;
+    function seekAt(clientX){
+      var r = progEl.getBoundingClientRect();
+      var ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+      var d = AU.duration;
+      if(!isFinite(d) || d <= 0) d = ((TR[M.i] || {}).dt || 0) / 1000;
+      if(d > 0 && AU.getAttribute('src')){ AU.currentTime = ratio * d; paintProgress(); }
+    }
+    progEl.addEventListener('pointerdown', function(e){
+      if(!AU.getAttribute('src')) return;
+      seeking = true;
+      try{ progEl.setPointerCapture(e.pointerId); }catch(err){}
+      seekAt(e.clientX);
+    });
+    progEl.addEventListener('pointermove', function(e){ if(seeking) seekAt(e.clientX); });
+    window.addEventListener('pointerup', function(){ seeking = false; });
+
+    // 音量
+    function applyVol(){
+      AU.volume = M.vol;
+      AU.muted = M.vol <= 0.001;
+      $('mpVol').value = String(Math.round(M.vol * 100));
+      $('mpVolBtn').textContent = M.vol <= 0.001 ? '🔇' : (M.vol < 0.45 ? '🔈' : '🔊');
+    }
+    $('mpVol').oninput = function(){ M.vol = this.value / 100; applyVol(); mSave(); };
+    $('mpVolBtn').onclick = function(){ M.vol = (M.vol > 0.001 ? 0 : 0.7); applyVol(); mSave(); };
+
+    // 播放模式
+    function applyMode(){
+      var m = MODES.filter(function(x){ return x.k === M.order; })[0] || MODES[0];
+      $('mpMode').textContent = m.ic;
+      $('mpMode').title = m.t;
+    }
+    $('mpMode').onclick = function(){
+      var i = 0;
+      for(var k = 0; k < MODES.length; k++){ if(MODES[k].k === M.order) i = k; }
+      M.order = MODES[(i + 1) % MODES.length].k;
+      applyMode(); mSave();
+    };
+
+    // 歌单展开 / 收起（往上弹）
+    function setOpen(o){
+      M.open = !!o;
+      MP.classList.toggle('open', M.open);
+      $('mpCount').classList.toggle('on', M.open);
+      if(M.open) markCurrent(true);
+      mSave();
+    }
+    $('mpCount').onclick = function(){ setOpen(!M.open); };
+    $('mpCover').onclick = function(){ setOpen(!M.open); };
+    $('mpListClose').onclick = function(){ setOpen(false); };
+
+    // 收起 / 呼出整条播放器
+    $('mpMin').onclick = function(){
+      M.hide = true; document.body.classList.add('mp-hide'); mSave();
+    };
+    $('mpOpen').onclick = function(){
+      M.hide = false; document.body.classList.remove('mp-hide'); mSave();
+    };
+
+    // 系统媒体键
+    if('mediaSession' in navigator){
+      try{
+        navigator.mediaSession.setActionHandler('play', function(){ AU.play(); });
+        navigator.mediaSession.setActionHandler('pause', function(){ AU.pause(); });
+        navigator.mediaSession.setActionHandler('previoustrack', function(){ playAt(nextGood(-1)); });
+        navigator.mediaSession.setActionHandler('nexttrack', function(){ advance(false); });
+      }catch(e){}
+    }
+
+    // ---------- 初始化 ----------
+    mLoad();
+    $('mpPlName').textContent = PL.name + ' · ' + TR.length + ' 首';
+    $('mpCountNum').textContent = TR.length;
+    renderRows();
+    applyMode();
+    applyVol();
+    renderMeta();
+    markCurrent(false);
+    setOpen(M.open);
+    if(M.hide) document.body.classList.add('mp-hide');
+  }
+
+  // ---------- 启动 ----------
+  load();
+  renderTicks();
+  $('vFocus').textContent = S.cfg.focus;
+  $('vShort').textContent = S.cfg.short;
+  $('vLong').textContent = S.cfg.long;
+  $('vCycle').textContent = S.cfg.cycle;
+  setMode('focus');
+  renderLog();
+  initVid();
+
+  // 支持 ?task=xxx 从冲刺计划带任务进来
+  (function(){
+    var m = (location.search||'').match(/[?&]task=([^&]+)/);
+    if(m){
+      try{
+        var t = decodeURIComponent(m[1]);
+        S.task = t; taskInput.value = t; save(); render();
+      }catch(e){}
+    }
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# 本地临时/打包产物，不上传
+_opt/
+_charset.txt
+*.zip

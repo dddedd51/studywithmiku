@@ -1,0 +1,6 @@
+# 文本文件统一 LF，避免换行符来回变动
+* text=auto eol=lf
+*.mp4 binary
+*.woff2 binary
+*.jpg binary
+*.png binary
